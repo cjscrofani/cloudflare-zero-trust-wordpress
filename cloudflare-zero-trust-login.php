@@ -37,14 +37,12 @@ if (!defined('CFZT_CLIENT_SECRET')) {
     define('CFZT_CLIENT_SECRET', getenv('CFZT_CLIENT_SECRET') ?: '');
 }
 
-// Create the includes directory if it doesn't exist
-if (!file_exists(CFZT_PLUGIN_DIR . 'includes')) {
-    wp_mkdir_p(CFZT_PLUGIN_DIR . 'includes');
-}
-
-// Include the GitHub updater class if it exists
-if (file_exists(CFZT_PLUGIN_DIR . 'includes/class-github-updater.php')) {
-    require_once CFZT_PLUGIN_DIR . 'includes/class-github-updater.php';
+// Include the GitHub updater class if it exists and not already loaded
+if (!class_exists('CFZT_GitHub_Updater')) {
+    $updater_file = CFZT_PLUGIN_DIR . 'includes/class-github-updater.php';
+    if (file_exists($updater_file)) {
+        require_once $updater_file;
+    }
 }
 
 // Main plugin class
@@ -62,10 +60,18 @@ class CloudflareZeroTrustLogin {
     
     private function __construct() {
         $this->init_hooks();
-        $this->init_updater();
+        // Delay updater initialization until WordPress is loaded
+        add_action('init', array($this, 'init_updater'), 1);
     }
     
-    private function init_updater() {
+    public function init_updater() {
+        // Create includes directory if needed
+        $includes_dir = CFZT_PLUGIN_DIR . 'includes';
+        if (!file_exists($includes_dir) && function_exists('wp_mkdir_p')) {
+            wp_mkdir_p($includes_dir);
+        }
+        
+        // Initialize updater if class exists
         if (class_exists('CFZT_GitHub_Updater')) {
             $this->github_updater = new CFZT_GitHub_Updater(
                 CFZT_PLUGIN_FILE,
@@ -96,9 +102,9 @@ class CloudflareZeroTrustLogin {
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
         
         // Activation/Deactivation hooks
-        register_activation_hook(__FILE__, array($this, 'activate'));
-        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-        register_uninstall_hook(__FILE__, array(__CLASS__, 'uninstall'));
+        register_activation_hook(CFZT_PLUGIN_FILE, array($this, 'activate'));
+        register_deactivation_hook(CFZT_PLUGIN_FILE, array($this, 'deactivate'));
+        register_uninstall_hook(CFZT_PLUGIN_FILE, array(__CLASS__, 'uninstall'));
     }
     
     public function activate() {
@@ -114,6 +120,12 @@ class CloudflareZeroTrustLogin {
             'default_role' => 'subscriber',
             'enable_logging' => 'no'
         ));
+        
+        // Create includes directory if it doesn't exist
+        $includes_dir = CFZT_PLUGIN_DIR . 'includes';
+        if (!file_exists($includes_dir)) {
+            wp_mkdir_p($includes_dir);
+        }
     }
     
     public function deactivate() {
@@ -414,7 +426,7 @@ class CloudflareZeroTrustLogin {
                 </tr>
                 <tr>
                     <td><strong>GitHub Updates:</strong></td>
-                    <td>✓ Enabled from <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>" target="_blank">GitHub repository</a></td>
+                    <td><?php echo class_exists('CFZT_GitHub_Updater') ? '✓ Enabled' : '⚠ Not available'; ?> from <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>" target="_blank">GitHub repository</a></td>
                 </tr>
             </table>
             
