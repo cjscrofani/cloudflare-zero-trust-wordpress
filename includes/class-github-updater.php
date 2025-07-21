@@ -427,5 +427,72 @@ if (!class_exists('CFZT_GitHub_Updater')) {
                 }
             }
         }
+        
+        /**
+         * Force check for updates (manual check)
+         * 
+         * @return array|false Update information or false if no update
+         */
+        public function force_check() {
+            // Clear cached GitHub response
+            $transient_name = 'cfzt_github_release_' . md5($this->github_username . $this->github_repository);
+            delete_transient($transient_name);
+            
+            // Reset internal cache
+            $this->github_response = null;
+            
+            // Get fresh release data
+            $github_release = $this->get_github_release();
+            
+            if (!$github_release || !isset($github_release['tag_name']) || isset($github_release['no_releases'])) {
+                return false;
+            }
+            
+            $plugin_data = $this->get_plugin_data();
+            $latest_version = ltrim($github_release['tag_name'], 'v');
+            $current_version = $plugin_data['Version'];
+            
+            $has_update = version_compare($current_version, $latest_version, '<');
+            
+            return array(
+                'has_update' => $has_update,
+                'current_version' => $current_version,
+                'latest_version' => $latest_version,
+                'download_url' => $this->get_download_url($github_release),
+                'release_url' => 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/releases/latest',
+                'changelog' => $github_release['body'] ?? ''
+            );
+        }
+        
+        /**
+         * Get current plugin version
+         * 
+         * @return string Current version
+         */
+        public function get_current_version() {
+            $plugin_data = $this->get_plugin_data();
+            return $plugin_data['Version'];
+        }
+        
+        /**
+         * Check if plugin has cached update info
+         * 
+         * @return array|false Update info if available
+         */
+        public function get_cached_update_info() {
+            $update_data = get_site_transient('update_plugins');
+            $plugin_slug = plugin_basename($this->plugin_file);
+            
+            if (isset($update_data->response[$plugin_slug])) {
+                return array(
+                    'has_update' => true,
+                    'current_version' => $this->get_current_version(),
+                    'latest_version' => $update_data->response[$plugin_slug]->new_version,
+                    'package' => $update_data->response[$plugin_slug]->package
+                );
+            }
+            
+            return false;
+        }
     }
 }
