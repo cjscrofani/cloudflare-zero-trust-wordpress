@@ -36,6 +36,8 @@ class CFZT_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_notices', array($this, 'admin_notices'));
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+        add_action('wp_ajax_cfzt_check_for_updates', array($this, 'ajax_check_for_updates'));
     }
     
     /**
@@ -352,5 +354,194 @@ class CFZT_Admin {
             $new_value['client_secret'] = isset($old_value['client_secret']) ? $old_value['client_secret'] : '';
         }
         return $new_value;
+    }
+    
+    /**
+     * Enqueue admin scripts
+     * 
+     * @param string $hook Current admin page hook
+     */
+    public function enqueue_admin_scripts($hook) {
+        if ($hook !== 'settings_page_cf-zero-trust') {
+            return;
+        }
+        
+        // Check if JS file exists, if not create it
+        $js_file = CFZT_PLUGIN_DIR . 'assets/js/cfzt-admin.js';
+        if (!file_exists($js_file)) {
+            $this->create_admin_js();
+        }
+        
+        wp_enqueue_script(
+            'cfzt-admin',
+            CFZT_PLUGIN_URL . 'assets/js/cfzt-admin.js',
+            array('jquery'),
+            CFZT_PLUGIN_VERSION,
+            true
+        );
+        
+        wp_localize_script('cfzt-admin', 'cfztAdmin', array(
+            'nonce' => wp_create_nonce('cfzt_check_updates'),
+            'checkingText' => __('Checking...', 'cf-zero-trust'),
+            'errorText' => __('Error checking for updates. Please try again.', 'cf-zero-trust'),
+            'updateNowText' => __('Update Now', 'cf-zero-trust'),
+            'showDetailsText' => __('Show Details', 'cf-zero-trust'),
+            'hideDetailsText' => __('Hide Details', 'cf-zero-trust')
+        ));
+        
+        // Add inline CSS for update check status
+        wp_add_inline_style('common', '
+            #cfzt-update-check-status {
+                margin: 10px 0;
+                padding: 10px;
+                display: none;
+            }
+            #cfzt-update-check-status.notice-success,
+            #cfzt-update-check-status.notice-warning,
+            #cfzt-update-check-status.notice-error {
+                display: block;
+            }
+            #cfzt-update-check-status .spinner {
+                visibility: visible;
+            }
+            #cfzt-security-details {
+                display: none;
+            }
+        ');
+    }
+    
+    /**
+     * Create admin JavaScript file
+     */
+    private function create_admin_js() {
+        $js_content = '/**
+ * Cloudflare Zero Trust Login Admin JavaScript
+ */
+(function($) {
+    \'use strict\';
+
+    $(document).ready(function() {
+        // Manual update check
+        $(\'#cfzt-check-updates\').on(\'click\', function(e) {
+            e.preventDefault();
+            
+            var $button = $(this);
+            var $status = $(\'#cfzt-update-check-status\');
+            var originalText = $button.text();
+            
+            // Disable button and show loading state
+            $button.prop(\'disabled\', true).text(cfztAdmin.checkingText);
+            $status.removeClass(\'notice-success notice-error\').html(\'<span class="spinner is-active" style="float: none; margin: 0;"></span> \' + cfztAdmin.checkingText);
+            
+            // Make AJAX request
+            $.ajax({
+                url: ajaxurl,
+                type: \'POST\',
+                data: {
+                    action: \'cfzt_check_for_updates\',
+                    nonce: cfztAdmin.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var message = response.data.message;
+                        var statusClass = response.data.hasUpdate ? \'notice-warning\' : \'notice-success\';
+                        
+                        $status.addClass(statusClass).html(message);
+                        
+                        // If update available, show update link
+                        if (response.data.hasUpdate && response.data.updateUrl) {
+                            $status.append(\' <a href="\' + response.data.updateUrl + \'">\' + cfztAdmin.updateNowText + \'</a>\');
+                        }
+                    } else {
+                        $status.addClass(\'notice-error\').html(response.data || cfztAdmin.errorText);
+                    }
+                },
+                error: function() {
+                    $status.addClass(\'notice-error\').html(cfztAdmin.errorText);
+                },
+                complete: function() {
+                    // Re-enable button
+                    $button.prop(\'disabled\', false).text(originalText);
+                }
+            });
+        });
+        
+        // Toggle security details
+        $(\'#cfzt-toggle-security\').on(\'click\', function(e) {
+            e.preventDefault();
+            $(\'#cfzt-security-details\').slideToggle();
+            $(this).text($(this).text() === cfztAdmin.showDetailsText ? cfztAdmin.hideDetailsText : cfztAdmin.showDetailsText);
+        });
+    });
+
+})(jQuery);';
+        
+        // Create directories if they don't exist
+        wp_mkdir_p(CFZT_PLUGIN_DIR . 'assets/js');
+        
+        // Write JS file
+        file_put_contents(CFZT_PLUGIN_DIR . 'assets/js/cfzt-admin.js', $js_content);
+    }
+    
+    /**
+     * AJAX handler for checking updates
+     */
+    public function ajax_check_for_updates() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_check_updates')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+        
+        // Check permissions
+        if (!current_user_can('update_plugins')) {
+            wp_send_json_error(__('You do not have permission to check for updates.', 'cf-zero-trust'));
+        }
+        
+        // Check if GitHub updater is available
+        if (!class_exists('CFZT_GitHub_Updater')) {
+            wp_send_json_error(__('Update checker is not available.', 'cf-zero-trust'));
+        }
+        
+        // Get the updater instance
+        $updater = new CFZT_GitHub_Updater(
+            CFZT_PLUGIN_FILE,
+            CFZT_GITHUB_USERNAME,
+            CFZT_GITHUB_REPOSITORY
+        );
+        
+        // Force check for updates
+        $update_info = $updater->force_check();
+        
+        if ($update_info === false) {
+            // Check if we have any release at all
+            wp_send_json_success(array(
+                'hasUpdate' => false,
+                'message' => sprintf(
+                    __('No updates available. Current version: %s', 'cf-zero-trust'),
+                    CFZT_PLUGIN_VERSION
+                )
+            ));
+        } elseif ($update_info['has_update']) {
+            // Update available
+            wp_send_json_success(array(
+                'hasUpdate' => true,
+                'message' => sprintf(
+                    __('Update available! Version %s → %s', 'cf-zero-trust'),
+                    $update_info['current_version'],
+                    $update_info['latest_version']
+                ),
+                'updateUrl' => admin_url('plugins.php'),
+                'releaseUrl' => $update_info['release_url']
+            ));
+        } else {
+            // Up to date
+            wp_send_json_success(array(
+                'hasUpdate' => false,
+                'message' => sprintf(
+                    __('You have the latest version (%s)', 'cf-zero-trust'),
+                    $update_info['current_version']
+                )
+            ));
+        }
     }
 }

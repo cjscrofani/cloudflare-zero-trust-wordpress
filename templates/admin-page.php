@@ -56,8 +56,8 @@ $options = CFZT_Plugin::get_option();
     </ul>
     <p><?php _e('The plugin automatically uses the correct endpoints based on your Application Type setting.', 'cf-zero-trust'); ?></p>
     
-    <h2><?php _e('Security Status', 'cf-zero-trust'); ?></h2>
-    <table class="widefat">
+    <h2><?php _e('Security Status', 'cf-zero-trust'); ?> <a href="#" id="cfzt-toggle-security" class="button button-small"><?php _e('Show Details', 'cf-zero-trust'); ?></a></h2>
+    <table class="widefat" id="cfzt-security-details">
         <tr>
             <td><strong><?php _e('Plugin Version:', 'cf-zero-trust'); ?></strong></td>
             <td><?php echo CFZT_PLUGIN_VERSION; ?>
@@ -72,6 +72,12 @@ $options = CFZT_Plugin::get_option();
                 echo ' <span style="color: #00a32a;">✓ ' . __('Up to date', 'cf-zero-trust') . '</span>';
             }
             ?>
+            <?php if (class_exists('CFZT_GitHub_Updater')): ?>
+                <button type="button" id="cfzt-check-updates" class="button button-small" style="margin-left: 10px;">
+                    <?php _e('Check for Updates', 'cf-zero-trust'); ?>
+                </button>
+                <div id="cfzt-update-check-status" class="notice inline"></div>
+            <?php endif; ?>
             </td>
         </tr>
         <tr>
