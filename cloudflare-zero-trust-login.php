@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/cjscrofani/cloudflare-zero-trust-wordpress
  * Description: Secure WordPress authentication using Cloudflare Zero Trust OIDC (OpenID Connect). Supports both SaaS and Self-hosted applications with built-in security features.
  * Version: 1.0.0
- * Author: Your Name
+ * Author: GDWS
  * License: GPL v2 or later
  * Text Domain: cf-zero-trust
  */
