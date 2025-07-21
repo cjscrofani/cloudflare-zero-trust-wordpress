@@ -1,0 +1,77 @@
+/* Cloudflare Zero Trust Login Styles */
+
+.cfzt-login-wrapper {
+    margin: 20px 0;
+}
+
+.cfzt-divider {
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+}
+
+.cfzt-divider span {
+    background: #fff;
+    padding: 0 10px;
+    position: relative;
+    color: #72777c;
+    font-size: 14px;
+    z-index: 1;
+}
+
+.cfzt-divider:before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ddd;
+}
+
+.cfzt-login-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px;
+    background: #f38020;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+    box-sizing: border-box;
+}
+
+.cfzt-login-button:hover {
+    background: #e56f0e;
+    color: #fff;
+}
+
+.cfzt-login-button:focus {
+    outline: 2px solid #2271b1;
+    outline-offset: 2px;
+    color: #fff;
+}
+
+.cfzt-login-button svg {
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .login .cfzt-divider span {
+        background: #1e1e1e;
+    }
+}
+
+/* Mobile responsive */
+@media screen and (max-width: 782px) {
+    .cfzt-login-button {
+        padding: 14px;
+        font-size: 16px;
+    }
+}
