@@ -1,48 +1,108 @@
-# Wordpress - ignore core, configuration, examples, uploads and logs.
-# https://github.com/github/gitignore/blob/main/WordPress.gitignore
+# =========================
+# OS Generated Files
+# =========================
 
-# Core
-#
-# Note: if you want to stage/commit WP core files
-# you can delete this whole section/until Configuration.
-/wp-admin/
-/wp-content/index.php
-/wp-content/languages
-/wp-content/plugins/index.php
-/wp-content/themes/index.php
-/wp-includes/
-/index.php
-/license.txt
-/readme.html
-/wp-*.php
-/xmlrpc.php
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 
-# Configuration
-wp-config.php
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Example themes
-/wp-content/themes/twenty*/
+# Linux
+*~
 
-# Example plugin
-/wp-content/plugins/hello.php
+# =========================
+# Editor & IDE Files
+# =========================
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
 
-# Uploads
-/wp-content/uploads/
+# =========================
+# Development & Dependencies
+# =========================
 
-# Log files
+# Composer
+/vendor/
+composer.lock  # Remove this line if you want to commit composer.lock
+
+# Node/NPM
+/node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build artifacts
+/build/
+/dist/
+
+# =========================
+# WordPress Plugin Development
+# =========================
+
+# Compiled/minified files (if generated)
+*.min.js
+*.min.css
+*.map
+
+# Translation binaries
+*.mo
+
+# Plugin releases
+*.zip
+
+# Logs
 *.log
+error_log
 
-# htaccess
-/.htaccess
+# =========================
+# Testing
+# =========================
+/tests/reports/
+.phpunit.result.cache
+/coverage/
 
-# All plugins
-#
-# Note: If you wish to whitelist plugins,
-# uncomment the next line
-#/wp-content/plugins
+# =========================
+# Environment & Config
+# =========================
+.env
+.env.*
+!.env.example
 
-# All themes
-#
-# Note: If you wish to whitelist themes,
-# uncomment the next line
-#/wp-content/themes
+# =========================
+# Temporary Files
+# =========================
+*.tmp
+*.temp
+*.bak
+*.backup
+.cache/
+
+# =========================
+# Project Specific
+# =========================
+
+# Local development folders
+/dev/
+/local/
+/wordpress/  # Local WP installation for testing
+
+# Documentation builds
+/docs/_build/
+
+# Optional: Keep or remove based on your workflow
+# package-lock.json
+# yarn.lock
+# .editorconfig
+# .eslintrc
+# .prettierrc
+# phpcs.xml
