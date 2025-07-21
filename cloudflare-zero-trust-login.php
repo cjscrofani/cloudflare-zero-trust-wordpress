@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Cloudflare Zero Trust Login
- * Plugin URI: https://your-website.com/
+ * Plugin URI: https://github.com/cjscrofani/cloudflare-zero-trust-wordpress
  * Description: Secure WordPress authentication using Cloudflare Zero Trust OIDC (OpenID Connect). Supports both SaaS and Self-hosted applications with built-in security features.
  * Version: 1.0.0
  * Author: Your Name
@@ -22,6 +22,12 @@ if (!defined('ABSPATH')) {
 define('CFZT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CFZT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CFZT_PLUGIN_BASENAME', plugin_basename(__FILE__));
+define('CFZT_PLUGIN_FILE', __FILE__);
+define('CFZT_PLUGIN_VERSION', '1.0.0');
+
+// GitHub repository details
+define('CFZT_GITHUB_USERNAME', 'cjscrofani');
+define('CFZT_GITHUB_REPOSITORY', 'cloudflare-zero-trust-wordpress');
 
 // Check for environment variables or wp-config constants
 if (!defined('CFZT_CLIENT_ID')) {
@@ -31,10 +37,14 @@ if (!defined('CFZT_CLIENT_SECRET')) {
     define('CFZT_CLIENT_SECRET', getenv('CFZT_CLIENT_SECRET') ?: '');
 }
 
+// Include the GitHub updater class
+require_once CFZT_PLUGIN_DIR . 'includes/class-github-updater.php';
+
 // Main plugin class
 class CloudflareZeroTrustLogin {
     
     private static $instance = null;
+    private $github_updater = null;
     
     public static function get_instance() {
         if (null === self::$instance) {
@@ -45,6 +55,15 @@ class CloudflareZeroTrustLogin {
     
     private function __construct() {
         $this->init_hooks();
+        $this->init_updater();
+    }
+    
+    private function init_updater() {
+        $this->github_updater = new CFZT_GitHub_Updater(
+            CFZT_PLUGIN_FILE,
+            CFZT_GITHUB_USERNAME,
+            CFZT_GITHUB_REPOSITORY
+        );
     }
     
     private function init_hooks() {
@@ -171,6 +190,17 @@ class CloudflareZeroTrustLogin {
     
     public function section_callback() {
         echo '<p>Configure your Cloudflare Zero Trust integration settings below.</p>';
+        
+        // Show plugin version and update status
+        echo '<p><strong>Plugin Version:</strong> ' . CFZT_PLUGIN_VERSION;
+        
+        // Check if update is available
+        $update_data = get_site_transient('update_plugins');
+        if (isset($update_data->response[CFZT_PLUGIN_BASENAME])) {
+            echo ' <span style="color: #d63638;">— Update available (v' . $update_data->response[CFZT_PLUGIN_BASENAME]->new_version . ')</span>';
+        }
+        
+        echo '</p>';
     }
     
     public function field_callback_auth_method() {
@@ -331,6 +361,21 @@ class CloudflareZeroTrustLogin {
             <h2>Security Status</h2>
             <table class="widefat">
                 <tr>
+                    <td><strong>Plugin Version:</strong></td>
+                    <td><?php echo CFZT_PLUGIN_VERSION; ?>
+                    <?php
+                    // Check for updates
+                    $update_data = get_site_transient('update_plugins');
+                    if (isset($update_data->response[CFZT_PLUGIN_BASENAME])) {
+                        $update = $update_data->response[CFZT_PLUGIN_BASENAME];
+                        echo ' <a href="' . admin_url('plugins.php') . '" style="color: #d63638;">Update available (v' . $update->new_version . ')</a>';
+                    } else {
+                        echo ' <span style="color: #00a32a;">✓ Up to date</span>';
+                    }
+                    ?>
+                    </td>
+                </tr>
+                <tr>
                     <td><strong>Encryption Method:</strong></td>
                     <td><?php echo $this->is_encryption_available() ? '✓ AES-256-CBC (OpenSSL)' : '⚠ Basic Obfuscation (Install OpenSSL for better security)'; ?></td>
                 </tr>
@@ -357,6 +402,10 @@ class CloudflareZeroTrustLogin {
                 <tr>
                     <td><strong>Security Headers:</strong></td>
                     <td>✓ Active on login page</td>
+                </tr>
+                <tr>
+                    <td><strong>GitHub Updates:</strong></td>
+                    <td>✓ Enabled from <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>" target="_blank">GitHub repository</a></td>
                 </tr>
             </table>
             
@@ -952,3 +1001,209 @@ define('CFZT_CLIENT_SECRET', getenv('CFZT_CLIENT_SECRET'));</pre>
 
 // Initialize the plugin
 CloudflareZeroTrustLogin::get_instance();
+
+// Create the includes directory if it doesn't exist
+if (!file_exists(CFZT_PLUGIN_DIR . 'includes')) {
+    wp_mkdir_p(CFZT_PLUGIN_DIR . 'includes');
+}
+
+// GitHub Updater Class (save this in includes/class-github-updater.php)
+if (!class_exists('CFZT_GitHub_Updater')) {
+    class CFZT_GitHub_Updater {
+        
+        private $plugin_file;
+        private $github_username;
+        private $github_repository;
+        private $plugin_data;
+        private $github_response;
+        
+        public function __construct($plugin_file, $github_username, $github_repository) {
+            $this->plugin_file = $plugin_file;
+            $this->github_username = $github_username;
+            $this->github_repository = $github_repository;
+            
+            add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_update'));
+            add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
+            add_action('upgrader_process_complete', array($this, 'after_update'), 10, 2);
+        }
+        
+        private function get_plugin_data() {
+            if (null === $this->plugin_data) {
+                $this->plugin_data = get_plugin_data($this->plugin_file);
+            }
+            return $this->plugin_data;
+        }
+        
+        private function get_github_release() {
+            if (null === $this->github_response) {
+                $transient_name = 'cfzt_github_release_' . md5($this->github_username . $this->github_repository);
+                
+                // Check if we have a cached version
+                $cached = get_transient($transient_name);
+                if ($cached !== false) {
+                    $this->github_response = $cached;
+                    return $this->github_response;
+                }
+                
+                // Fetch from GitHub API
+                $url = sprintf(
+                    'https://api.github.com/repos/%s/%s/releases/latest',
+                    $this->github_username,
+                    $this->github_repository
+                );
+                
+                $response = wp_remote_get($url, array(
+                    'timeout' => 10,
+                    'headers' => array(
+                        'Accept' => 'application/vnd.github.v3+json',
+                    ),
+                ));
+                
+                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                    $body = wp_remote_retrieve_body($response);
+                    $release = json_decode($body, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && isset($release['tag_name'])) {
+                        $this->github_response = $release;
+                        // Cache for 6 hours
+                        set_transient($transient_name, $release, 6 * HOUR_IN_SECONDS);
+                    }
+                }
+            }
+            
+            return $this->github_response;
+        }
+        
+        public function check_for_update($transient) {
+            if (empty($transient->checked)) {
+                return $transient;
+            }
+            
+            $plugin_data = $this->get_plugin_data();
+            $github_release = $this->get_github_release();
+            
+            if (!$github_release || !isset($github_release['tag_name'])) {
+                return $transient;
+            }
+            
+            // Extract version from tag (remove 'v' prefix if present)
+            $latest_version = ltrim($github_release['tag_name'], 'v');
+            $current_version = $plugin_data['Version'];
+            
+            // Check if update is available
+            if (version_compare($current_version, $latest_version, '<')) {
+                $plugin_slug = plugin_basename($this->plugin_file);
+                
+                // Get download URL
+                $download_url = '';
+                if (!empty($github_release['assets'])) {
+                    foreach ($github_release['assets'] as $asset) {
+                        if (strpos($asset['name'], '.zip') !== false) {
+                            $download_url = $asset['browser_download_url'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Fallback to zipball URL if no assets
+                if (empty($download_url)) {
+                    $download_url = $github_release['zipball_url'];
+                }
+                
+                $transient->response[$plugin_slug] = (object) array(
+                    'id' => $plugin_slug,
+                    'slug' => dirname($plugin_slug),
+                    'plugin' => $plugin_slug,
+                    'new_version' => $latest_version,
+                    'url' => 'https://github.com/' . $this->github_username . '/' . $this->github_repository,
+                    'package' => $download_url,
+                    'icons' => array(),
+                    'banners' => array(),
+                    'banners_rtl' => array(),
+                    'tested' => get_bloginfo('version'),
+                    'requires_php' => $plugin_data['RequiresPHP'] ?? '5.6',
+                    'compatibility' => new stdClass(),
+                );
+            }
+            
+            return $transient;
+        }
+        
+        public function plugin_info($result, $action, $args) {
+            if ($action !== 'plugin_information') {
+                return $result;
+            }
+            
+            if ($args->slug !== dirname(plugin_basename($this->plugin_file))) {
+                return $result;
+            }
+            
+            $plugin_data = $this->get_plugin_data();
+            $github_release = $this->get_github_release();
+            
+            if (!$github_release) {
+                return $result;
+            }
+            
+            $plugin_info = new stdClass();
+            $plugin_info->name = $plugin_data['Name'];
+            $plugin_info->slug = dirname(plugin_basename($this->plugin_file));
+            $plugin_info->version = ltrim($github_release['tag_name'], 'v');
+            $plugin_info->author = $plugin_data['Author'];
+            $plugin_info->homepage = $plugin_data['PluginURI'];
+            $plugin_info->short_description = $plugin_data['Description'];
+            $plugin_info->sections = array(
+                'description' => $plugin_data['Description'],
+                'changelog' => $this->parse_changelog($github_release['body'] ?? ''),
+            );
+            
+            // Get download URL
+            $download_url = '';
+            if (!empty($github_release['assets'])) {
+                foreach ($github_release['assets'] as $asset) {
+                    if (strpos($asset['name'], '.zip') !== false) {
+                        $download_url = $asset['browser_download_url'];
+                        break;
+                    }
+                }
+            }
+            
+            if (empty($download_url)) {
+                $download_url = $github_release['zipball_url'];
+            }
+            
+            $plugin_info->download_link = $download_url;
+            
+            return $plugin_info;
+        }
+        
+        private function parse_changelog($markdown) {
+            // Convert markdown to HTML-ish format for WordPress
+            $changelog = $markdown;
+            
+            // Convert headers
+            $changelog = preg_replace('/^### (.+)$/m', '<h4>$1</h4>', $changelog);
+            $changelog = preg_replace('/^## (.+)$/m', '<h3>$1</h3>', $changelog);
+            
+            // Convert lists
+            $changelog = preg_replace('/^\* (.+)$/m', '<li>$1</li>', $changelog);
+            $changelog = preg_replace('/^\- (.+)$/m', '<li>$1</li>', $changelog);
+            
+            // Wrap lists
+            $changelog = preg_replace('/(<li>.*<\/li>\n?)+/s', '<ul>$0</ul>', $changelog);
+            
+            // Convert line breaks
+            $changelog = nl2br($changelog);
+            
+            return $changelog;
+        }
+        
+        public function after_update($upgrader_object, $options) {
+            if ($options['action'] === 'update' && $options['type'] === 'plugin') {
+                // Clear our transient after update
+                $transient_name = 'cfzt_github_release_' . md5($this->github_username . $this->github_repository);
+                delete_transient($transient_name);
+            }
+        }
+    }
+}
