@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 $security = new CFZT_Security();
 $security_status = $security->get_security_status();
 $options = CFZT_Plugin::get_option();
+$auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
 ?>
 
 <div class="wrap">
@@ -28,33 +29,84 @@ $options = CFZT_Plugin::get_option();
     </form>
     
     <h2><?php _e('Setup Instructions', 'cf-zero-trust'); ?></h2>
-    <ol>
-        <li><?php _e('In Cloudflare Zero Trust, go to Access > Applications', 'cf-zero-trust'); ?></li>
-        <li><?php _e('Add a new application and choose type:', 'cf-zero-trust'); ?>
-            <ul>
-                <li><strong><?php _e('SaaS', 'cf-zero-trust'); ?></strong> <?php _e('(Recommended) - Provides standard OIDC endpoints', 'cf-zero-trust'); ?></li>
-                <li><strong><?php _e('Self-hosted', 'cf-zero-trust'); ?></strong> <?php _e('- For custom applications', 'cf-zero-trust'); ?></li>
-            </ul>
-        </li>
-        <li><?php _e('Configure OIDC settings with redirect URL:', 'cf-zero-trust'); ?> <code><?php echo esc_url(home_url('/wp-login.php?cfzt_callback=1')); ?></code></li>
-        <li><?php _e('Copy the provided credentials:', 'cf-zero-trust'); ?>
-            <ul>
-                <li><strong><?php _e('Client ID', 'cf-zero-trust'); ?></strong> - <?php _e('The unique identifier', 'cf-zero-trust'); ?></li>
-                <li><strong><?php _e('Client Secret', 'cf-zero-trust'); ?></strong> - <?php _e('The authentication secret', 'cf-zero-trust'); ?></li>
-                <li><strong><?php _e('Team Domain', 'cf-zero-trust'); ?></strong> - <?php _e('From the Issuer URL (e.g.,', 'cf-zero-trust'); ?> <code>yourteam.cloudflareaccess.com</code>)</li>
-            </ul>
-        </li>
-        <li><?php _e('Enter these values above and save', 'cf-zero-trust'); ?></li>
-    </ol>
     
-    <h3><?php _e('For SaaS Applications', 'cf-zero-trust'); ?></h3>
-    <p><?php _e('If you created a SaaS application, Cloudflare provides these endpoints:', 'cf-zero-trust'); ?></p>
-    <ul>
-        <li><strong><?php _e('Authorization:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/authorization</code></li>
-        <li><strong><?php _e('Token:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/token</code></li>
-        <li><strong><?php _e('Userinfo:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/userinfo</code></li>
-    </ul>
-    <p><?php _e('The plugin automatically uses the correct endpoints based on your Application Type setting.', 'cf-zero-trust'); ?></p>
+    <div id="cfzt-oidc-instructions" style="display: <?php echo $auth_method === 'oauth2' ? 'block' : 'none'; ?>;">
+        <h3><?php _e('OIDC (OpenID Connect) Setup', 'cf-zero-trust'); ?></h3>
+        <ol>
+            <li><?php _e('In Cloudflare Zero Trust, go to Access > Applications', 'cf-zero-trust'); ?></li>
+            <li><?php _e('Add a new application and choose type:', 'cf-zero-trust'); ?>
+                <ul>
+                    <li><strong><?php _e('SaaS', 'cf-zero-trust'); ?></strong> <?php _e('(Recommended) - Provides standard OIDC endpoints', 'cf-zero-trust'); ?></li>
+                    <li><strong><?php _e('Self-hosted', 'cf-zero-trust'); ?></strong> <?php _e('- For custom applications', 'cf-zero-trust'); ?></li>
+                </ul>
+            </li>
+            <li><?php _e('Configure OIDC settings with redirect URL:', 'cf-zero-trust'); ?> <code><?php echo esc_url(home_url('/wp-login.php?cfzt_callback=1')); ?></code></li>
+            <li><?php _e('Copy the provided credentials:', 'cf-zero-trust'); ?>
+                <ul>
+                    <li><strong><?php _e('Client ID', 'cf-zero-trust'); ?></strong> - <?php _e('The unique identifier', 'cf-zero-trust'); ?></li>
+                    <li><strong><?php _e('Client Secret', 'cf-zero-trust'); ?></strong> - <?php _e('The authentication secret', 'cf-zero-trust'); ?></li>
+                    <li><strong><?php _e('Team Domain', 'cf-zero-trust'); ?></strong> - <?php _e('From the Issuer URL (e.g.,', 'cf-zero-trust'); ?> <code>yourteam.cloudflareaccess.com</code>)</li>
+                </ul>
+            </li>
+            <li><?php _e('Enter these values above and save', 'cf-zero-trust'); ?></li>
+        </ol>
+        
+        <h4><?php _e('For SaaS Applications', 'cf-zero-trust'); ?></h4>
+        <p><?php _e('If you created a SaaS application, Cloudflare provides these endpoints:', 'cf-zero-trust'); ?></p>
+        <ul>
+            <li><strong><?php _e('Authorization:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/authorization</code></li>
+            <li><strong><?php _e('Token:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/token</code></li>
+            <li><strong><?php _e('Userinfo:', 'cf-zero-trust'); ?></strong> <code>/cdn-cgi/access/sso/oidc/{client_id}/userinfo</code></li>
+        </ul>
+    </div>
+    
+    <div id="cfzt-saml-instructions" style="display: <?php echo $auth_method === 'saml' ? 'block' : 'none'; ?>;">
+        <h3><?php _e('SAML Setup', 'cf-zero-trust'); ?></h3>
+        <ol>
+            <li><?php _e('In Cloudflare Zero Trust, go to Access > Applications', 'cf-zero-trust'); ?></li>
+            <li><?php _e('Add a new SAML application', 'cf-zero-trust'); ?></li>
+            <li><?php _e('Configure SAML settings:', 'cf-zero-trust'); ?>
+                <ul>
+                    <li><strong><?php _e('Entity ID:', 'cf-zero-trust'); ?></strong> <?php echo isset($options['saml_sp_entity_id']) && !empty($options['saml_sp_entity_id']) ? '<code>' . esc_html($options['saml_sp_entity_id']) . '</code>' : '<code>' . esc_url(home_url()) . '</code>'; ?></li>
+                    <li><strong><?php _e('Assertion Consumer Service URL:', 'cf-zero-trust'); ?></strong> <code><?php echo esc_url(home_url('cfzt-saml/acs/')); ?></code></li>
+                    <li><strong><?php _e('Single Logout URL:', 'cf-zero-trust'); ?></strong> <code><?php echo esc_url(home_url('cfzt-saml/sls/')); ?></code></li>
+                    <li><strong><?php _e('Name ID Format:', 'cf-zero-trust'); ?></strong> <code>Email</code></li>
+                </ul>
+            </li>
+            <li><?php _e('From Cloudflare, copy:', 'cf-zero-trust'); ?>
+                <ul>
+                    <li><strong><?php _e('SSO Target URL ID', 'cf-zero-trust'); ?></strong> - <?php _e('The unique ID in the SSO endpoint URL', 'cf-zero-trust'); ?></li>
+                    <li><strong><?php _e('Public Certificate', 'cf-zero-trust'); ?></strong> - <?php _e('For signature validation (optional)', 'cf-zero-trust'); ?></li>
+                </ul>
+            </li>
+            <li><?php _e('Enter these values above and save', 'cf-zero-trust'); ?></li>
+        </ol>
+        
+        <?php 
+        $auth = new CFZT_Auth($security);
+        $metadata_url = $auth->get_saml_metadata_url();
+        if ($metadata_url): 
+        ?>
+        <h4><?php _e('Alternative: Import SP Metadata', 'cf-zero-trust'); ?></h4>
+        <p><?php _e('You can also import the Service Provider metadata directly into Cloudflare:', 'cf-zero-trust'); ?></p>
+        <p><strong><?php _e('SP Metadata URL:', 'cf-zero-trust'); ?></strong> <code><?php echo esc_url($metadata_url); ?></code></p>
+        <?php endif; ?>
+    </div>
+    
+    <script>
+    jQuery(document).ready(function($) {
+        $('#cfzt_auth_method').on('change', function() {
+            var method = $(this).val();
+            if (method === 'saml') {
+                $('#cfzt-oidc-instructions').hide();
+                $('#cfzt-saml-instructions').show();
+            } else {
+                $('#cfzt-oidc-instructions').show();
+                $('#cfzt-saml-instructions').hide();
+            }
+        });
+    });
+    </script>
     
     <h2><?php _e('Security Status', 'cf-zero-trust'); ?> <a href="#" id="cfzt-toggle-security" class="button button-small"><?php _e('Show Details', 'cf-zero-trust'); ?></a></h2>
     <table class="widefat" id="cfzt-security-details">
@@ -79,6 +131,10 @@ $options = CFZT_Plugin::get_option();
                 <div id="cfzt-update-check-status" class="notice inline"></div>
             <?php endif; ?>
             </td>
+        </tr>
+        <tr>
+            <td><strong><?php _e('Authentication Method:', 'cf-zero-trust'); ?></strong></td>
+            <td><?php echo $auth_method === 'saml' ? 'SAML' : 'OIDC'; ?></td>
         </tr>
         <tr>
             <td><strong><?php _e('Encryption Method:', 'cf-zero-trust'); ?></strong></td>
@@ -118,6 +174,14 @@ $options = CFZT_Plugin::get_option();
             <td><strong><?php _e('Security Headers:', 'cf-zero-trust'); ?></strong></td>
             <td>✓ <?php _e('Active on login page', 'cf-zero-trust'); ?></td>
         </tr>
+        <?php if ($auth_method === 'saml'): ?>
+        <tr>
+            <td><strong><?php _e('PHP DOM Extension:', 'cf-zero-trust'); ?></strong></td>
+            <td><?php echo class_exists('DOMDocument') ? 
+                '✓ ' . __('Installed', 'cf-zero-trust') : 
+                '✗ ' . __('Not installed (required for SAML)', 'cf-zero-trust'); ?></td>
+        </tr>
+        <?php endif; ?>
         <tr>
             <td><strong><?php _e('GitHub Updates:', 'cf-zero-trust'); ?></strong></td>
             <td><?php echo class_exists('CFZT_GitHub_Updater') ? 
@@ -150,10 +214,19 @@ define('CFZT_CLIENT_SECRET', getenv('CFZT_CLIENT_SECRET'));</pre>
     
     <h2><?php _e('Troubleshooting', 'cf-zero-trust'); ?></h2>
     <ul>
-        <li><strong><?php _e('Login button not appearing:', 'cf-zero-trust'); ?></strong> <?php _e('Ensure Team Domain and Client ID are configured.', 'cf-zero-trust'); ?></li>
-        <li><strong><?php _e('Authentication fails:', 'cf-zero-trust'); ?></strong> <?php _e('Check that your redirect URL matches exactly in Cloudflare.', 'cf-zero-trust'); ?></li>
+        <li><strong><?php _e('Login button not appearing:', 'cf-zero-trust'); ?></strong> <?php _e('Ensure Team Domain and Client ID (for OIDC) or SSO Target URL (for SAML) are configured.', 'cf-zero-trust'); ?></li>
+        <li><strong><?php _e('Authentication fails:', 'cf-zero-trust'); ?></strong> 
+            <?php if ($auth_method === 'saml'): ?>
+                <?php _e('Check that your Entity ID and Assertion Consumer Service URL match exactly in Cloudflare.', 'cf-zero-trust'); ?>
+            <?php else: ?>
+                <?php _e('Check that your redirect URL matches exactly in Cloudflare.', 'cf-zero-trust'); ?>
+            <?php endif; ?>
+        </li>
         <li><strong><?php _e('Users cannot be created:', 'cf-zero-trust'); ?></strong> <?php _e('Enable "Auto-create Users" in settings.', 'cf-zero-trust'); ?></li>
         <li><strong><?php _e('Rate limit errors:', 'cf-zero-trust'); ?></strong> <?php _e('Wait 5 minutes or check for brute force attempts.', 'cf-zero-trust'); ?></li>
+        <?php if ($auth_method === 'saml'): ?>
+        <li><strong><?php _e('SAML Response validation fails:', 'cf-zero-trust'); ?></strong> <?php _e('Ensure the X.509 certificate is correctly configured and matches the one used by Cloudflare.', 'cf-zero-trust'); ?></li>
+        <?php endif; ?>
     </ul>
     
     <?php if ($options['enable_logging'] === 'yes'): ?>

@@ -19,6 +19,12 @@ class CFZT_Auth {
     private $security;
     
     /**
+     * SAML handler instance
+     * @var CFZT_SAML
+     */
+    private $saml_handler;
+    
+    /**
      * Constructor
      * 
      * @param CFZT_Security $security Security instance
@@ -26,6 +32,9 @@ class CFZT_Auth {
     public function __construct($security) {
         $this->security = $security;
         $this->init_hooks();
+        
+        // Initialize SAML handler if needed
+        $this->init_saml_if_needed();
     }
     
     /**
@@ -39,11 +48,38 @@ class CFZT_Auth {
     }
     
     /**
-     * Get authorization URL
+     * Initialize SAML handler if needed
+     */
+    private function init_saml_if_needed() {
+        $options = CFZT_Plugin::get_option();
+        if (isset($options['auth_method']) && $options['auth_method'] === 'saml' && !$this->saml_handler) {
+            require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-saml.php';
+            $this->saml_handler = new CFZT_SAML($this->security);
+        }
+    }
+    
+    /**
+     * Get authorization URL based on auth method
      * 
      * @return string Authorization URL
      */
     public function get_auth_url() {
+        $options = CFZT_Plugin::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
+        
+        if ($auth_method === 'saml' && $this->saml_handler) {
+            return $this->saml_handler->get_auth_url();
+        } else {
+            return $this->get_oidc_auth_url();
+        }
+    }
+    
+    /**
+     * Get OIDC authorization URL
+     * 
+     * @return string Authorization URL
+     */
+    private function get_oidc_auth_url() {
         $options = CFZT_Plugin::get_option();
         
         if (empty($options['team_domain']) || empty($options['client_id'])) {
@@ -74,10 +110,20 @@ class CFZT_Auth {
     }
     
     /**
-     * Handle OAuth callback
+     * Handle OAuth callback (for OIDC only)
      */
     public function handle_callback() {
+        // Only handle OIDC callbacks here
+        // SAML is handled through its own endpoints
         if (!isset($_GET['cfzt_callback']) || !isset($_GET['code']) || !isset($_GET['state'])) {
+            return;
+        }
+        
+        $options = CFZT_Plugin::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
+        
+        // Only process if using OIDC
+        if ($auth_method !== 'oauth2') {
             return;
         }
         
@@ -250,6 +296,10 @@ class CFZT_Auth {
             
             // Update last login meta
             update_user_meta($user->ID, 'cfzt_last_login', current_time('mysql'));
+            update_user_meta($user->ID, 'cfzt_auth_method', 'oidc');
+            
+            // Protect session
+            $this->security->protect_session();
             
             // Log successful authentication
             $this->log_authentication($email, true);
@@ -299,6 +349,7 @@ class CFZT_Auth {
         
         // Update user meta
         update_user_meta($user_id, 'cfzt_user', true);
+        update_user_meta($user_id, 'cfzt_auth_method', 'oidc');
         
         // Store the unique identifier (sub)
         $sub = isset($user_info['sub']) ? $user_info['sub'] : $email;
@@ -435,5 +486,17 @@ class CFZT_Auth {
         
         // Trigger action for other plugins to hook into
         do_action('cfzt_authentication_attempt', $identifier, $success, $message);
+    }
+    
+    /**
+     * Get SAML metadata URL if using SAML
+     * 
+     * @return string|null Metadata URL or null if not using SAML
+     */
+    public function get_saml_metadata_url() {
+        if ($this->saml_handler) {
+            return $this->saml_handler->get_metadata_url();
+        }
+        return null;
     }
 }

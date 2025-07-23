@@ -59,33 +59,81 @@ class CFZT_Admin {
     public function register_settings() {
         register_setting('cfzt_settings_group', 'cfzt_settings', array($this, 'sanitize_settings'));
         
+        // Main section
         add_settings_section(
             'cfzt_main_section',
-            __('Cloudflare Zero Trust Configuration', 'cf-zero-trust'),
-            array($this, 'section_callback'),
+            __('General Configuration', 'cf-zero-trust'),
+            array($this, 'main_section_callback'),
             'cf-zero-trust'
         );
         
-        // Add settings fields
-        $fields = array(
+        // Add general settings fields
+        $general_fields = array(
             'auth_method' => __('Authentication Method', 'cf-zero-trust'),
-            'app_type' => __('Application Type', 'cf-zero-trust'),
             'team_domain' => __('Team Domain', 'cf-zero-trust'),
-            'client_id' => __('Client ID', 'cf-zero-trust'),
-            'client_secret' => __('Client Secret', 'cf-zero-trust'),
             'login_mode' => __('Login Mode', 'cf-zero-trust'),
             'auto_create_users' => __('Auto-create Users', 'cf-zero-trust'),
             'default_role' => __('Default User Role', 'cf-zero-trust'),
             'enable_logging' => __('Enable Authentication Logging', 'cf-zero-trust')
         );
         
-        foreach ($fields as $field => $label) {
+        foreach ($general_fields as $field => $label) {
             add_settings_field(
                 'cfzt_' . $field,
                 $label,
                 array($this, 'field_callback'),
                 'cf-zero-trust',
                 'cfzt_main_section',
+                array('field' => $field)
+            );
+        }
+        
+        // OIDC section
+        add_settings_section(
+            'cfzt_oidc_section',
+            __('OIDC Configuration', 'cf-zero-trust'),
+            array($this, 'oidc_section_callback'),
+            'cf-zero-trust'
+        );
+        
+        $oidc_fields = array(
+            'app_type' => __('Application Type', 'cf-zero-trust'),
+            'client_id' => __('Client ID', 'cf-zero-trust'),
+            'client_secret' => __('Client Secret', 'cf-zero-trust'),
+        );
+        
+        foreach ($oidc_fields as $field => $label) {
+            add_settings_field(
+                'cfzt_oidc_' . $field,
+                $label,
+                array($this, 'field_callback'),
+                'cf-zero-trust',
+                'cfzt_oidc_section',
+                array('field' => $field)
+            );
+        }
+        
+        // SAML section
+        add_settings_section(
+            'cfzt_saml_section',
+            __('SAML Configuration', 'cf-zero-trust'),
+            array($this, 'saml_section_callback'),
+            'cf-zero-trust'
+        );
+        
+        $saml_fields = array(
+            'saml_sso_target_url' => __('SSO Target URL ID', 'cf-zero-trust'),
+            'saml_sp_entity_id' => __('SP Entity ID', 'cf-zero-trust'),
+            'saml_x509_cert' => __('X.509 Certificate', 'cf-zero-trust'),
+        );
+        
+        foreach ($saml_fields as $field => $label) {
+            add_settings_field(
+                'cfzt_' . $field,
+                $label,
+                array($this, 'field_callback'),
+                'cf-zero-trust',
+                'cfzt_saml_section',
                 array('field' => $field)
             );
         }
@@ -100,40 +148,70 @@ class CFZT_Admin {
     public function sanitize_settings($input) {
         $sanitized = array();
         
+        // General settings
         $sanitized['auth_method'] = sanitize_text_field($input['auth_method']);
-        $sanitized['app_type'] = sanitize_text_field($input['app_type']);
         $sanitized['team_domain'] = sanitize_text_field($input['team_domain']);
-        $sanitized['client_id'] = sanitize_text_field($input['client_id']);
-        
-        // Encrypt sensitive data
-        $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($input['client_secret']));
-        
         $sanitized['login_mode'] = sanitize_text_field($input['login_mode']);
         $sanitized['auto_create_users'] = sanitize_text_field($input['auto_create_users']);
         $sanitized['default_role'] = sanitize_text_field($input['default_role']);
         $sanitized['enable_logging'] = sanitize_text_field($input['enable_logging']);
         
+        // OIDC settings
+        $sanitized['app_type'] = sanitize_text_field($input['app_type']);
+        $sanitized['client_id'] = sanitize_text_field($input['client_id']);
+        
+        // Encrypt sensitive data
+        $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($input['client_secret']));
+        
+        // SAML settings
+        $sanitized['saml_sso_target_url'] = sanitize_text_field($input['saml_sso_target_url']);
+        $sanitized['saml_sp_entity_id'] = sanitize_text_field($input['saml_sp_entity_id']);
+        $sanitized['saml_x509_cert'] = sanitize_textarea_field($input['saml_x509_cert']);
+        
+        // Clear rewrite rules when auth method changes
+        $current_options = get_option('cfzt_settings', array());
+        if (isset($current_options['auth_method']) && $current_options['auth_method'] !== $sanitized['auth_method']) {
+            set_transient('cfzt_flush_rewrite_rules', true);
+        }
+        
         return $sanitized;
     }
     
     /**
-     * Section callback
+     * Main section callback
      */
-    public function section_callback() {
+    public function main_section_callback() {
         echo '<p>' . __('Configure your Cloudflare Zero Trust integration settings below.', 'cf-zero-trust') . '</p>';
+    }
+    
+    /**
+     * OIDC section callback
+     */
+    public function oidc_section_callback() {
+        $options = CFZT_Plugin::get_option();
+        $display = (isset($options['auth_method']) && $options['auth_method'] === 'oauth2') ? 'block' : 'none';
+        echo '<div id="cfzt-oidc-settings" style="display: ' . $display . ';">';
+        echo '<p>' . __('Configure OIDC (OpenID Connect) specific settings.', 'cf-zero-trust') . '</p>';
+        echo '</div>';
+    }
+    
+    /**
+     * SAML section callback
+     */
+    public function saml_section_callback() {
+        $options = CFZT_Plugin::get_option();
+        $display = (isset($options['auth_method']) && $options['auth_method'] === 'saml') ? 'block' : 'none';
+        echo '<div id="cfzt-saml-settings" style="display: ' . $display . ';">';
+        echo '<p>' . __('Configure SAML specific settings.', 'cf-zero-trust') . '</p>';
         
-        // Show plugin version and update status
-        echo '<p><strong>' . __('Plugin Version:', 'cf-zero-trust') . '</strong> ' . CFZT_PLUGIN_VERSION;
-        
-        // Check if update is available
-        $update_data = get_site_transient('update_plugins');
-        if (isset($update_data->response[CFZT_PLUGIN_BASENAME])) {
-            echo ' <span style="color: #d63638;">— ' . 
-                 sprintf(__('Update available (v%s)', 'cf-zero-trust'), $update_data->response[CFZT_PLUGIN_BASENAME]->new_version) . 
-                 '</span>';
+        // Show metadata URL
+        $auth = new CFZT_Auth($this->security);
+        $metadata_url = $auth->get_saml_metadata_url();
+        if ($metadata_url) {
+            echo '<p><strong>' . __('SP Metadata URL:', 'cf-zero-trust') . '</strong> <code>' . esc_url($metadata_url) . '</code></p>';
+            echo '<p class="description">' . __('Provide this metadata URL to Cloudflare when configuring your SAML application.', 'cf-zero-trust') . '</p>';
         }
-        
-        echo '</p>';
+        echo '</div>';
     }
     
     /**
@@ -182,6 +260,18 @@ class CFZT_Admin {
             case 'enable_logging':
                 $this->render_logging_field($value);
                 break;
+                
+            case 'saml_sso_target_url':
+                $this->render_saml_sso_target_url_field($value);
+                break;
+                
+            case 'saml_sp_entity_id':
+                $this->render_saml_sp_entity_id_field($value);
+                break;
+                
+            case 'saml_x509_cert':
+                $this->render_saml_x509_cert_field($value);
+                break;
         }
     }
     
@@ -190,11 +280,11 @@ class CFZT_Admin {
      */
     private function render_auth_method_field($value) {
         ?>
-        <select name="cfzt_settings[auth_method]">
+        <select name="cfzt_settings[auth_method]" id="cfzt_auth_method">
             <option value="oauth2" <?php selected($value, 'oauth2'); ?>><?php _e('OIDC (OpenID Connect)', 'cf-zero-trust'); ?></option>
-            <option value="saml" <?php selected($value, 'saml'); ?>><?php _e('SAML (Coming Soon)', 'cf-zero-trust'); ?></option>
+            <option value="saml" <?php selected($value, 'saml'); ?>><?php _e('SAML', 'cf-zero-trust'); ?></option>
         </select>
-        <p class="description"><?php _e('OIDC (OpenID Connect) is the authentication protocol used by Cloudflare Zero Trust.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php _e('Choose the authentication protocol to use with Cloudflare Zero Trust.', 'cf-zero-trust'); ?></p>
         <?php
     }
     
@@ -317,6 +407,45 @@ class CFZT_Admin {
     }
     
     /**
+     * Render SAML SSO Target URL field
+     */
+    private function render_saml_sso_target_url_field($value) {
+        ?>
+        <input type="text" name="cfzt_settings[saml_sso_target_url]" value="<?php echo esc_attr($value); ?>" class="regular-text" />
+        <p class="description">
+            <?php _e('The SSO target URL ID from your Cloudflare SAML configuration.', 'cf-zero-trust'); ?><br>
+            <?php _e('This is the unique identifier in the SSO endpoint URL after /saml/', 'cf-zero-trust'); ?>
+        </p>
+        <?php
+    }
+    
+    /**
+     * Render SAML SP Entity ID field
+     */
+    private function render_saml_sp_entity_id_field($value) {
+        ?>
+        <input type="text" name="cfzt_settings[saml_sp_entity_id]" value="<?php echo esc_attr($value); ?>" class="regular-text" placeholder="<?php echo esc_attr(home_url()); ?>" />
+        <p class="description">
+            <?php _e('Service Provider Entity ID. If left empty, your site URL will be used.', 'cf-zero-trust'); ?><br>
+            <?php _e('This must match the Entity ID configured in Cloudflare.', 'cf-zero-trust'); ?>
+        </p>
+        <?php
+    }
+    
+    /**
+     * Render SAML X.509 Certificate field
+     */
+    private function render_saml_x509_cert_field($value) {
+        ?>
+        <textarea name="cfzt_settings[saml_x509_cert]" rows="10" cols="50" class="large-text code"><?php echo esc_textarea($value); ?></textarea>
+        <p class="description">
+            <?php _e('X.509 Certificate from Cloudflare for signature validation (optional but recommended).', 'cf-zero-trust'); ?><br>
+            <?php _e('Include the entire certificate including BEGIN/END lines.', 'cf-zero-trust'); ?>
+        </p>
+        <?php
+    }
+    
+    /**
      * Settings page
      */
     public function settings_page() {
@@ -327,6 +456,12 @@ class CFZT_Admin {
      * Admin notices
      */
     public function admin_notices() {
+        // Check if we need to flush rewrite rules
+        if (get_transient('cfzt_flush_rewrite_rules')) {
+            flush_rewrite_rules();
+            delete_transient('cfzt_flush_rewrite_rules');
+        }
+        
         $screen = get_current_screen();
         if ($screen && $screen->id === 'settings_page_cf-zero-trust') {
             if (!$this->security->is_encryption_available()) {
@@ -335,6 +470,18 @@ class CFZT_Admin {
                     <p><?php _e('OpenSSL is not available on your server. Client secrets will be stored with basic obfuscation instead of strong encryption. Consider enabling OpenSSL for better security.', 'cf-zero-trust'); ?></p>
                 </div>
                 <?php
+            }
+            
+            // Check SAML requirements
+            $options = CFZT_Plugin::get_option();
+            if (isset($options['auth_method']) && $options['auth_method'] === 'saml') {
+                if (!class_exists('DOMDocument')) {
+                    ?>
+                    <div class="notice notice-error">
+                        <p><?php _e('The PHP DOM extension is required for SAML authentication but is not installed. Please install the php-xml package.', 'cf-zero-trust'); ?></p>
+                    </div>
+                    <?php
+                }
             }
         }
     }
@@ -407,6 +554,13 @@ class CFZT_Admin {
             #cfzt-security-details {
                 display: none;
             }
+            #cfzt-oidc-settings,
+            #cfzt-saml-settings {
+                margin-top: 20px;
+            }
+            .cfzt-section-hidden {
+                display: none;
+            }
         ');
     }
     
@@ -421,6 +575,41 @@ class CFZT_Admin {
     \'use strict\';
 
     $(document).ready(function() {
+        // Toggle authentication method sections
+        function toggleAuthSections() {
+            var authMethod = $(\'#cfzt_auth_method\').val();
+            
+            if (authMethod === \'saml\') {
+                $(\'#cfzt-oidc-settings\').hide();
+                $(\'#cfzt-saml-settings\').show();
+                // Hide OIDC fields
+                $(\'tr\').filter(function() {
+                    return this.id && this.id.match(/^cfzt_oidc_/);
+                }).hide();
+                // Show SAML fields
+                $(\'tr\').filter(function() {
+                    return this.id && this.id.match(/^cfzt_saml_/);
+                }).show();
+            } else {
+                $(\'#cfzt-oidc-settings\').show();
+                $(\'#cfzt-saml-settings\').hide();
+                // Show OIDC fields
+                $(\'tr\').filter(function() {
+                    return this.id && this.id.match(/^cfzt_oidc_/);
+                }).show();
+                // Hide SAML fields
+                $(\'tr\').filter(function() {
+                    return this.id && this.id.match(/^cfzt_saml_/);
+                }).hide();
+            }
+        }
+        
+        // Initial toggle
+        toggleAuthSections();
+        
+        // Toggle on change
+        $(\'#cfzt_auth_method\').on(\'change\', toggleAuthSections);
+        
         // Manual update check
         $(\'#cfzt-check-updates\').on(\'click\', function(e) {
             e.preventDefault();
