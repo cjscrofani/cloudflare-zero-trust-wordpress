@@ -1765,12 +1765,30 @@ class CFZT_Admin {
             $sanitized['saml_x509_cert'] = sanitize_textarea_field($settings['saml_x509_cert']);
         }
 
-        // Role mapping and email restrictions if present
-        if (isset($settings['role_mapping'])) {
-            $sanitized['role_mapping'] = $settings['role_mapping'];
+        // Role mapping (with proper sanitization)
+        if (isset($settings['role_mapping']) && is_array($settings['role_mapping'])) {
+            $sanitized['role_mapping'] = array();
+            foreach ($settings['role_mapping'] as $mapping) {
+                if (is_array($mapping) && !empty($mapping['group']) && !empty($mapping['role'])) {
+                    $sanitized['role_mapping'][] = array(
+                        'group' => sanitize_text_field($mapping['group']),
+                        'role' => sanitize_text_field($mapping['role'])
+                    );
+                }
+            }
         }
+
+        // Email domain restrictions
         if (isset($settings['email_domain_restrictions'])) {
             $sanitized['email_domain_restrictions'] = sanitize_textarea_field($settings['email_domain_restrictions']);
+        }
+
+        // Custom redirect URLs
+        if (isset($settings['redirect_after_login'])) {
+            $sanitized['redirect_after_login'] = esc_url_raw($settings['redirect_after_login']);
+        }
+        if (isset($settings['redirect_after_logout'])) {
+            $sanitized['redirect_after_logout'] = esc_url_raw($settings['redirect_after_logout']);
         }
 
         // Save settings

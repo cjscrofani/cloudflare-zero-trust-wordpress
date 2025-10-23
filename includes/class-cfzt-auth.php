@@ -522,9 +522,10 @@ class CFZT_Auth {
             return $options['redirect_after_login'];
         }
 
-        // Check for redirect_to parameter
+        // Check for redirect_to parameter (validate to prevent open redirects)
         if (isset($_REQUEST['redirect_to']) && !empty($_REQUEST['redirect_to'])) {
-            return $_REQUEST['redirect_to'];
+            $redirect = wp_validate_redirect($_REQUEST['redirect_to'], admin_url());
+            return $redirect;
         }
 
         // Default to admin dashboard

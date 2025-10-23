@@ -30,9 +30,17 @@ class CFZT_Backup_Codes {
     const META_KEY = 'cfzt_backup_codes';
 
     /**
+     * Security instance
+     * @var CFZT_Security
+     */
+    private $security;
+
+    /**
      * Initialize hooks
      */
     public function __construct() {
+        $this->security = new CFZT_Security();
+
         add_action('wp_ajax_cfzt_generate_backup_codes', array($this, 'ajax_generate_backup_codes'));
         add_filter('authenticate', array($this, 'authenticate_with_backup_code'), 40, 3);
         add_action('show_user_profile', array($this, 'display_user_profile_section'));
@@ -111,7 +119,7 @@ class CFZT_Backup_Codes {
         }
 
         $unused = array_filter($codes, function($code) {
-            return !$code['used'];
+            return is_array($code) && isset($code['used']) && !$code['used'];
         });
 
         return count($unused);
@@ -218,6 +226,17 @@ class CFZT_Backup_Codes {
         // Prevent programmatic access
         if (defined('DOING_AJAX') || defined('DOING_CRON') || defined('WP_CLI')) {
             return $user;
+        }
+
+        // Rate limiting check to prevent brute force attacks
+        if (!$this->security->check_rate_limit()) {
+            CFZT_Logger::warning('Rate limit exceeded for backup code authentication', array(
+                'ip' => $_SERVER['REMOTE_ADDR']
+            ));
+            return new WP_Error(
+                'rate_limit_exceeded',
+                __('Too many backup code attempts. Please try again in 5 minutes.', 'cf-zero-trust')
+            );
         }
 
         $backup_code = sanitize_text_field($_POST['cfzt_backup_code']);
