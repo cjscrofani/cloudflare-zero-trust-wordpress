@@ -218,9 +218,35 @@ class CFZT_Plugin {
             }
         }
 
+        // Create logs table
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'cfzt_logs';
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE $table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            log_time datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            log_level varchar(20) NOT NULL,
+            message text NOT NULL,
+            identifier varchar(255) DEFAULT '' NOT NULL,
+            auth_method varchar(20) DEFAULT '' NOT NULL,
+            success tinyint(1) DEFAULT 0 NOT NULL,
+            ip_address varchar(45) DEFAULT '' NOT NULL,
+            user_agent text DEFAULT '' NOT NULL,
+            context text DEFAULT '' NOT NULL,
+            PRIMARY KEY  (id),
+            KEY log_time (log_time),
+            KEY log_level (log_level),
+            KEY identifier (identifier)
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+
         // Set activation timestamp
         add_option('cfzt_activated_time', current_time('timestamp'));
         update_option('cfzt_version', CFZT_PLUGIN_VERSION);
+        update_option('cfzt_db_version', '1.0');
 
         // Set activation notice flag
         set_transient('cfzt_activation_notice', true, 60 * 60 * 24); // Show for 24 hours

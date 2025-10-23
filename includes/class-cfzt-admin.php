@@ -41,18 +41,48 @@ class CFZT_Admin {
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_cfzt_check_for_updates', array($this, 'ajax_check_for_updates'));
+        add_action('wp_ajax_cfzt_get_logs', array($this, 'ajax_get_logs'));
+        add_action('wp_ajax_cfzt_export_logs', array($this, 'ajax_export_logs'));
+        add_action('wp_ajax_cfzt_clear_logs', array($this, 'ajax_clear_logs'));
+
+        // Users list customization
+        add_filter('manage_users_columns', array($this, 'add_user_columns'));
+        add_filter('manage_users_custom_column', array($this, 'render_user_column'), 10, 3);
+        add_filter('manage_users_sortable_columns', array($this, 'make_user_columns_sortable'));
+        add_action('pre_get_users', array($this, 'sort_users_by_cfzt'));
+        add_filter('views_users', array($this, 'add_cfzt_users_filter'));
+        add_action('pre_get_users', array($this, 'filter_cfzt_users'));
     }
     
     /**
      * Add admin menu
      */
     public function add_admin_menu() {
+        // Main settings page
         add_options_page(
             __('Cloudflare Zero Trust Settings', 'cf-zero-trust'),
             __('CF Zero Trust', 'cf-zero-trust'),
             'manage_options',
             'cf-zero-trust',
             array($this, 'settings_page')
+        );
+
+        // Dashboard page under Tools menu for easy access
+        add_management_page(
+            __('CF Zero Trust Dashboard', 'cf-zero-trust'),
+            __('CF Zero Trust', 'cf-zero-trust'),
+            'manage_options',
+            'cf-zero-trust-dashboard',
+            array($this, 'dashboard_page')
+        );
+
+        // Logs page under Tools menu
+        add_management_page(
+            __('CF Zero Trust Logs', 'cf-zero-trust'),
+            __('CF Zero Trust Logs', 'cf-zero-trust'),
+            'manage_options',
+            'cf-zero-trust-logs',
+            array($this, 'logs_page')
         );
     }
     
@@ -467,7 +497,21 @@ class CFZT_Admin {
     public function settings_page() {
         require_once CFZT_PLUGIN_DIR . 'templates/admin-page.php';
     }
-    
+
+    /**
+     * Dashboard page callback
+     */
+    public function dashboard_page() {
+        require_once CFZT_PLUGIN_DIR . 'templates/dashboard-page.php';
+    }
+
+    /**
+     * Logs page callback
+     */
+    public function logs_page() {
+        require_once CFZT_PLUGIN_DIR . 'templates/logs-page.php';
+    }
+
     /**
      * Admin notices
      */
@@ -825,7 +869,7 @@ class CFZT_Admin {
             'hideDetailsText' => __('Hide Details', 'cf-zero-trust')
         ));
         
-        // Add inline CSS for update check status
+        // Add inline CSS for update check status and user column
         wp_add_inline_style('common', '
             #cfzt-update-check-status {
                 margin: 10px 0;
@@ -849,6 +893,22 @@ class CFZT_Admin {
             }
             .cfzt-section-hidden {
                 display: none;
+            }
+            .cfzt-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 600;
+                line-height: 1;
+            }
+            .cfzt-badge-active {
+                background: #00a0d2;
+                color: #fff;
+            }
+            .cfzt-user-status {
+                line-height: 1.8;
             }
         ');
     }
@@ -1020,6 +1080,375 @@ class CFZT_Admin {
                     $update_info['current_version']
                 )
             ));
+        }
+    }
+
+    /**
+     * AJAX handler to get logs
+     */
+    public function ajax_get_logs() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to view logs.', 'cf-zero-trust'));
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'cfzt_logs';
+
+        // Get filter parameters
+        $level = isset($_POST['level']) ? sanitize_text_field($_POST['level']) : '';
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : '';
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : '';
+        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field($_POST['auth_method']) : '';
+        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field($_POST['success_filter']) : '';
+        $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+        $per_page = 20;
+        $offset = ($page - 1) * $per_page;
+
+        // Build query
+        $where = array('1=1');
+        $where_values = array();
+
+        if (!empty($level)) {
+            $where[] = 'log_level = %s';
+            $where_values[] = $level;
+        }
+
+        if (!empty($search)) {
+            $where[] = '(message LIKE %s OR identifier LIKE %s)';
+            $where_values[] = '%' . $wpdb->esc_like($search) . '%';
+            $where_values[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        if (!empty($date_from)) {
+            $where[] = 'log_time >= %s';
+            $where_values[] = $date_from . ' 00:00:00';
+        }
+
+        if (!empty($date_to)) {
+            $where[] = 'log_time <= %s';
+            $where_values[] = $date_to . ' 23:59:59';
+        }
+
+        if (!empty($auth_method)) {
+            $where[] = 'auth_method = %s';
+            $where_values[] = $auth_method;
+        }
+
+        if ($success_filter !== '') {
+            $where[] = 'success = %d';
+            $where_values[] = intval($success_filter);
+        }
+
+        $where_clause = implode(' AND ', $where);
+
+        // Get total count
+        if (!empty($where_values)) {
+            $count_query = $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE $where_clause", $where_values);
+        } else {
+            $count_query = "SELECT COUNT(*) FROM $table_name WHERE $where_clause";
+        }
+        $total = $wpdb->get_var($count_query);
+
+        // Get logs
+        if (!empty($where_values)) {
+            $logs_query = $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC LIMIT %d OFFSET %d",
+                array_merge($where_values, array($per_page, $offset))
+            );
+        } else {
+            $logs_query = $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC LIMIT %d OFFSET %d",
+                $per_page,
+                $offset
+            );
+        }
+        $logs = $wpdb->get_results($logs_query);
+
+        wp_send_json_success(array(
+            'logs' => $logs,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $per_page,
+            'total_pages' => ceil($total / $per_page)
+        ));
+    }
+
+    /**
+     * AJAX handler to export logs to CSV
+     */
+    public function ajax_export_logs() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
+            wp_die(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to export logs.', 'cf-zero-trust'));
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'cfzt_logs';
+
+        // Get filter parameters
+        $level = isset($_POST['level']) ? sanitize_text_field($_POST['level']) : '';
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : '';
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : '';
+        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field($_POST['auth_method']) : '';
+        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field($_POST['success_filter']) : '';
+
+        // Build query (same as get_logs)
+        $where = array('1=1');
+        $where_values = array();
+
+        if (!empty($level)) {
+            $where[] = 'log_level = %s';
+            $where_values[] = $level;
+        }
+
+        if (!empty($search)) {
+            $where[] = '(message LIKE %s OR identifier LIKE %s)';
+            $where_values[] = '%' . $wpdb->esc_like($search) . '%';
+            $where_values[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        if (!empty($date_from)) {
+            $where[] = 'log_time >= %s';
+            $where_values[] = $date_from . ' 00:00:00';
+        }
+
+        if (!empty($date_to)) {
+            $where[] = 'log_time <= %s';
+            $where_values[] = $date_to . ' 23:59:59';
+        }
+
+        if (!empty($auth_method)) {
+            $where[] = 'auth_method = %s';
+            $where_values[] = $auth_method;
+        }
+
+        if ($success_filter !== '') {
+            $where[] = 'success = %d';
+            $where_values[] = intval($success_filter);
+        }
+
+        $where_clause = implode(' AND ', $where);
+
+        // Get all matching logs
+        if (!empty($where_values)) {
+            $logs_query = $wpdb->prepare("SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC", $where_values);
+        } else {
+            $logs_query = "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC";
+        }
+        $logs = $wpdb->get_results($logs_query, ARRAY_A);
+
+        // Generate CSV
+        $filename = 'cfzt-logs-' . date('Y-m-d-His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=' . $filename);
+
+        $output = fopen('php://output', 'w');
+
+        // Add BOM for Excel UTF-8 support
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+        // CSV headers
+        fputcsv($output, array('Time', 'Level', 'Message', 'Identifier', 'Auth Method', 'Success', 'IP Address', 'User Agent'));
+
+        // CSV data
+        foreach ($logs as $log) {
+            fputcsv($output, array(
+                $log['log_time'],
+                $log['log_level'],
+                $log['message'],
+                $log['identifier'],
+                $log['auth_method'],
+                $log['success'] ? 'Yes' : 'No',
+                $log['ip_address'],
+                $log['user_agent']
+            ));
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * AJAX handler to clear all logs
+     */
+    public function ajax_clear_logs() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to clear logs.', 'cf-zero-trust'));
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'cfzt_logs';
+
+        // Delete all logs
+        $deleted = $wpdb->query("TRUNCATE TABLE $table_name");
+
+        if ($deleted !== false) {
+            CFZT_Logger::info('Authentication logs cleared by admin', array(
+                'admin_user' => wp_get_current_user()->user_login
+            ));
+
+            wp_send_json_success(__('All logs have been cleared.', 'cf-zero-trust'));
+        } else {
+            wp_send_json_error(__('Failed to clear logs.', 'cf-zero-trust'));
+        }
+    }
+
+    /**
+     * Add custom columns to users list
+     *
+     * @param array $columns Existing columns
+     * @return array Modified columns
+     */
+    public function add_user_columns($columns) {
+        // Insert column after the email column
+        $new_columns = array();
+        foreach ($columns as $key => $value) {
+            $new_columns[$key] = $value;
+            if ($key === 'email') {
+                $new_columns['cfzt_status'] = __('CF Zero Trust', 'cf-zero-trust');
+            }
+        }
+        return $new_columns;
+    }
+
+    /**
+     * Render custom user column content
+     *
+     * @param string $output Custom column output
+     * @param string $column_name Column name
+     * @param int $user_id User ID
+     * @return string Column content
+     */
+    public function render_user_column($output, $column_name, $user_id) {
+        if ($column_name !== 'cfzt_status') {
+            return $output;
+        }
+
+        if (!CFZT_User_Helper::is_cfzt_user($user_id)) {
+            return '<span style="color: #999;">—</span>';
+        }
+
+        $auth_method = get_user_meta($user_id, 'cfzt_auth_method', true);
+        $last_login = get_user_meta($user_id, 'cfzt_last_login', true);
+
+        $output = '<div class="cfzt-user-status">';
+        $output .= '<span class="cfzt-badge cfzt-badge-active">';
+        $output .= '<span class="dashicons dashicons-cloud" style="font-size: 14px; width: 14px; height: 14px; margin-right: 3px;"></span>';
+        $output .= __('Active', 'cf-zero-trust');
+        $output .= '</span>';
+
+        if ($auth_method) {
+            $method_label = strtoupper($auth_method);
+            $output .= '<br><small style="color: #666;">' . sprintf(__('Method: %s', 'cf-zero-trust'), $method_label) . '</small>';
+        }
+
+        if ($last_login) {
+            $last_login_formatted = human_time_diff(strtotime($last_login), current_time('timestamp'));
+            $output .= '<br><small style="color: #999;">' . sprintf(__('Last login: %s ago', 'cf-zero-trust'), $last_login_formatted) . '</small>';
+        }
+
+        $output .= '</div>';
+
+        return $output;
+    }
+
+    /**
+     * Make custom columns sortable
+     *
+     * @param array $columns Sortable columns
+     * @return array Modified sortable columns
+     */
+    public function make_user_columns_sortable($columns) {
+        $columns['cfzt_status'] = 'cfzt_user';
+        return $columns;
+    }
+
+    /**
+     * Sort users by CF Zero Trust status
+     *
+     * @param WP_User_Query $query User query
+     */
+    public function sort_users_by_cfzt($query) {
+        if (!is_admin()) {
+            return;
+        }
+
+        $orderby = $query->get('orderby');
+        if ($orderby === 'cfzt_user') {
+            $query->set('meta_key', 'cfzt_user');
+            $query->set('orderby', 'meta_value');
+        }
+    }
+
+    /**
+     * Add filter link for CF Zero Trust users
+     *
+     * @param array $views Existing views
+     * @return array Modified views
+     */
+    public function add_cfzt_users_filter($views) {
+        global $wpdb;
+
+        // Count CF Zero Trust users
+        $count = $wpdb->get_var(
+            "SELECT COUNT(DISTINCT user_id)
+             FROM {$wpdb->usermeta}
+             WHERE meta_key = 'cfzt_user'
+             AND meta_value = '1'"
+        );
+
+        if ($count > 0) {
+            $class = '';
+            if (isset($_GET['cfzt_users']) && $_GET['cfzt_users'] === '1') {
+                $class = 'current';
+            }
+
+            $url = add_query_arg('cfzt_users', '1', admin_url('users.php'));
+            $views['cfzt_users'] = sprintf(
+                '<a href="%s" class="%s">%s <span class="count">(%d)</span></a>',
+                esc_url($url),
+                $class,
+                __('CF Zero Trust Users', 'cf-zero-trust'),
+                $count
+            );
+        }
+
+        return $views;
+    }
+
+    /**
+     * Filter users to show only CF Zero Trust users
+     *
+     * @param WP_User_Query $query User query
+     */
+    public function filter_cfzt_users($query) {
+        if (!is_admin()) {
+            return;
+        }
+
+        if (isset($_GET['cfzt_users']) && $_GET['cfzt_users'] === '1') {
+            $query->set('meta_key', 'cfzt_user');
+            $query->set('meta_value', '1');
         }
     }
 }
