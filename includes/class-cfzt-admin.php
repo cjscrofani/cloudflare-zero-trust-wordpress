@@ -52,6 +52,10 @@ class CFZT_Admin {
         add_action('pre_get_users', array($this, 'sort_users_by_cfzt'));
         add_filter('views_users', array($this, 'add_cfzt_users_filter'));
         add_action('pre_get_users', array($this, 'filter_cfzt_users'));
+
+        // Import/export
+        add_action('wp_ajax_cfzt_export_settings', array($this, 'ajax_export_settings'));
+        add_action('wp_ajax_cfzt_import_settings', array($this, 'ajax_import_settings'));
     }
     
     /**
@@ -203,6 +207,24 @@ class CFZT_Admin {
         $sanitized['saml_sso_target_url'] = sanitize_text_field($input['saml_sso_target_url']);
         $sanitized['saml_sp_entity_id'] = sanitize_text_field($input['saml_sp_entity_id']);
         $sanitized['saml_x509_cert'] = sanitize_textarea_field($input['saml_x509_cert']);
+
+        // Email domain restrictions
+        if (isset($input['email_domain_restrictions'])) {
+            $sanitized['email_domain_restrictions'] = sanitize_textarea_field($input['email_domain_restrictions']);
+        }
+
+        // Role mapping
+        if (isset($input['role_mapping']) && is_array($input['role_mapping'])) {
+            $sanitized['role_mapping'] = array();
+            foreach ($input['role_mapping'] as $mapping) {
+                if (!empty($mapping['group'])) {
+                    $sanitized['role_mapping'][] = array(
+                        'group' => sanitize_text_field($mapping['group']),
+                        'role' => sanitize_text_field($mapping['role'])
+                    );
+                }
+            }
+        }
 
         // Clear rewrite rules when auth method changes
         $current_options = get_option('cfzt_settings', array());
@@ -1450,5 +1472,141 @@ class CFZT_Admin {
             $query->set('meta_key', 'cfzt_user');
             $query->set('meta_value', '1');
         }
+    }
+
+    /**
+     * AJAX handler to export settings
+     */
+    public function ajax_export_settings() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_import_export')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to export settings.', 'cf-zero-trust'));
+        }
+
+        // Get current settings
+        $options = CFZT_Plugin::get_option();
+
+        // Decrypt client secret for export
+        if (!empty($options['client_secret'])) {
+            $options['client_secret'] = $this->security->decrypt_data($options['client_secret']);
+        }
+
+        // Add metadata
+        $export_data = array(
+            'version' => CFZT_PLUGIN_VERSION,
+            'exported_at' => current_time('mysql'),
+            'site_url' => home_url(),
+            'settings' => $options
+        );
+
+        // Return JSON
+        wp_send_json_success(array(
+            'data' => $export_data,
+            'filename' => 'cfzt-settings-' . date('Y-m-d-His') . '.json'
+        ));
+    }
+
+    /**
+     * AJAX handler to import settings
+     */
+    public function ajax_import_settings() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_import_export')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to import settings.', 'cf-zero-trust'));
+        }
+
+        // Get import data
+        if (empty($_POST['import_data'])) {
+            wp_send_json_error(__('No import data provided.', 'cf-zero-trust'));
+        }
+
+        // Decode JSON
+        $import_data = json_decode(stripslashes($_POST['import_data']), true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            wp_send_json_error(__('Invalid JSON format.', 'cf-zero-trust'));
+        }
+
+        // Validate structure
+        if (!isset($import_data['settings']) || !is_array($import_data['settings'])) {
+            wp_send_json_error(__('Invalid import file structure.', 'cf-zero-trust'));
+        }
+
+        $settings = $import_data['settings'];
+
+        // Validate required fields
+        $required_fields = array('auth_method', 'team_domain');
+        foreach ($required_fields as $field) {
+            if (!isset($settings[$field])) {
+                wp_send_json_error(sprintf(__('Missing required field: %s', 'cf-zero-trust'), $field));
+            }
+        }
+
+        // Sanitize and encrypt as needed
+        $sanitized = array();
+
+        // General settings
+        $sanitized['auth_method'] = sanitize_text_field($settings['auth_method']);
+        $sanitized['team_domain'] = sanitize_text_field($settings['team_domain']);
+        $sanitized['login_mode'] = isset($settings['login_mode']) ? sanitize_text_field($settings['login_mode']) : 'secondary';
+        $sanitized['auto_create_users'] = isset($settings['auto_create_users']) ? sanitize_text_field($settings['auto_create_users']) : 'yes';
+        $sanitized['default_role'] = isset($settings['default_role']) ? sanitize_text_field($settings['default_role']) : 'subscriber';
+        $sanitized['enable_logging'] = isset($settings['enable_logging']) ? sanitize_text_field($settings['enable_logging']) : 'no';
+
+        // OIDC settings
+        if (isset($settings['app_type'])) {
+            $sanitized['app_type'] = sanitize_text_field($settings['app_type']);
+        }
+        if (isset($settings['client_id'])) {
+            $sanitized['client_id'] = sanitize_text_field($settings['client_id']);
+        }
+        if (isset($settings['client_secret'])) {
+            // Encrypt the client secret
+            $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($settings['client_secret']));
+        }
+
+        // SAML settings
+        if (isset($settings['saml_sso_target_url'])) {
+            $sanitized['saml_sso_target_url'] = sanitize_text_field($settings['saml_sso_target_url']);
+        }
+        if (isset($settings['saml_sp_entity_id'])) {
+            $sanitized['saml_sp_entity_id'] = sanitize_text_field($settings['saml_sp_entity_id']);
+        }
+        if (isset($settings['saml_x509_cert'])) {
+            $sanitized['saml_x509_cert'] = sanitize_textarea_field($settings['saml_x509_cert']);
+        }
+
+        // Role mapping and email restrictions if present
+        if (isset($settings['role_mapping'])) {
+            $sanitized['role_mapping'] = $settings['role_mapping'];
+        }
+        if (isset($settings['email_domain_restrictions'])) {
+            $sanitized['email_domain_restrictions'] = sanitize_textarea_field($settings['email_domain_restrictions']);
+        }
+
+        // Save settings
+        update_option('cfzt_settings', $sanitized);
+
+        // Clear options cache
+        CFZT_Plugin::clear_options_cache();
+
+        // Log the import
+        CFZT_Logger::info('Settings imported', array(
+            'admin_user' => wp_get_current_user()->user_login,
+            'from_version' => isset($import_data['version']) ? $import_data['version'] : 'unknown',
+            'from_site' => isset($import_data['site_url']) ? $import_data['site_url'] : 'unknown'
+        ));
+
+        wp_send_json_success(__('Settings imported successfully!', 'cf-zero-trust'));
     }
 }

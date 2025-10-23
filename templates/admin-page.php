@@ -494,6 +494,25 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
     color: #a5d2ff;
 }
 
+/* Import/Export Boxes */
+.cfzt-import-export-box {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.cfzt-import-export-box h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.cfzt-import-export-box p {
+    margin: 0 0 15px 0;
+    font-size: 13px;
+    color: #646970;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 782px) {
     .cfzt-wizard-header {
@@ -893,6 +912,54 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                         </select>
                         <p class="description">Log authentication attempts for debugging</p>
                     </div>
+
+                    <!-- Advanced Settings -->
+                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;">Advanced Settings</h3>
+
+                    <div class="cfzt-form-group">
+                        <label for="cfzt_email_domain_restrictions">
+                            Email Domain Restrictions
+                            <span class="cfzt-help-icon" data-tooltip="Restrict authentication to specific email domains. Enter one domain per line (e.g., example.com). Leave empty to allow all domains.">?</span>
+                        </label>
+                        <textarea id="cfzt_email_domain_restrictions" name="cfzt_settings[email_domain_restrictions]" rows="3" class="large-text" placeholder="example.com&#10;company.org"><?php echo esc_textarea($options['email_domain_restrictions'] ?? ''); ?></textarea>
+                        <p class="description"><?php _e('One domain per line. Users with email addresses from these domains will be allowed to log in.', 'cf-zero-trust'); ?></p>
+                    </div>
+
+                    <div class="cfzt-form-group">
+                        <label>
+                            Role Mapping (Cloudflare Groups → WordPress Roles)
+                            <span class="cfzt-help-icon" data-tooltip="Map Cloudflare Access groups to WordPress roles. When a user logs in, their WordPress role will be automatically set based on their Cloudflare group membership.">?</span>
+                        </label>
+                        <div id="cfzt-role-mappings">
+                            <?php
+                            $role_mappings = isset($options['role_mapping']) && is_array($options['role_mapping']) ? $options['role_mapping'] : array();
+                            if (empty($role_mappings)) {
+                                $role_mappings = array(array('group' => '', 'role' => 'subscriber'));
+                            }
+                            foreach ($role_mappings as $index => $mapping):
+                            ?>
+                            <div class="cfzt-role-mapping-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                                <input type="text" name="cfzt_settings[role_mapping][<?php echo $index; ?>][group]" value="<?php echo esc_attr($mapping['group']); ?>" placeholder="Cloudflare group name" class="regular-text" style="flex: 1;">
+                                <span>→</span>
+                                <select name="cfzt_settings[role_mapping][<?php echo $index; ?>][role]" class="regular-text" style="flex: 1;">
+                                    <?php
+                                    $roles = wp_roles()->get_names();
+                                    foreach ($roles as $role_value => $role_name):
+                                    ?>
+                                    <option value="<?php echo esc_attr($role_value); ?>" <?php selected($mapping['role'], $role_value); ?>><?php echo esc_html($role_name); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="button cfzt-remove-mapping" style="color: #d63638;">
+                                    <span class="dashicons dashicons-trash"></span>
+                                </button>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <button type="button" id="cfzt-add-role-mapping" class="button button-secondary" style="margin-top: 10px;">
+                            <span class="dashicons dashicons-plus-alt"></span> <?php _e('Add Role Mapping', 'cf-zero-trust'); ?>
+                        </button>
+                        <p class="description"><?php _e('Map Cloudflare Access group names to WordPress roles. First matching group wins.', 'cf-zero-trust'); ?></p>
+                    </div>
                 </div>
 
                 <!-- Step 4: Review and Complete -->
@@ -954,6 +1021,37 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                 submit_button();
                 ?>
             </form>
+
+            <!-- Import/Export Settings -->
+            <div style="padding: 0 30px 30px;">
+                <h2 style="border-top: 1px solid #ccd0d4; padding-top: 20px;"><?php _e('Import / Export Settings', 'cf-zero-trust'); ?></h2>
+                <p class="description"><?php _e('Export your configuration as a backup or to transfer to another site. Import a previously exported configuration file.', 'cf-zero-trust'); ?></p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <!-- Export -->
+                    <div class="cfzt-import-export-box">
+                        <h3><?php _e('Export Settings', 'cf-zero-trust'); ?></h3>
+                        <p><?php _e('Download your current configuration as a JSON file. This includes all settings except sensitive data is decrypted for portability.', 'cf-zero-trust'); ?></p>
+                        <button type="button" id="cfzt-export-settings" class="button button-secondary">
+                            <span class="dashicons dashicons-download" style="margin-top: 3px;"></span>
+                            <?php _e('Export Settings', 'cf-zero-trust'); ?>
+                        </button>
+                    </div>
+
+                    <!-- Import -->
+                    <div class="cfzt-import-export-box">
+                        <h3><?php _e('Import Settings', 'cf-zero-trust'); ?></h3>
+                        <p><?php _e('Upload a previously exported JSON file to restore settings. This will replace your current configuration.', 'cf-zero-trust'); ?></p>
+                        <input type="file" id="cfzt-import-file" accept=".json" style="margin-bottom: 10px;">
+                        <button type="button" id="cfzt-import-settings" class="button button-secondary" disabled>
+                            <span class="dashicons dashicons-upload" style="margin-top: 3px;"></span>
+                            <?php _e('Import Settings', 'cf-zero-trust'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="cfzt-import-export-result" style="margin-top: 20px;"></div>
+            </div>
         </div>
     </div>
     
@@ -1608,6 +1706,162 @@ jQuery(document).ready(function($) {
             validateField($('#cfzt_client_id'), { clientId: true });
         }
     }, 500);
+
+    // Role mapping - Add new row
+    var roleMappingIndex = <?php echo count($role_mappings); ?>;
+    $('#cfzt-add-role-mapping').on('click', function() {
+        var roleOptions = '';
+        <?php
+        $roles = wp_roles()->get_names();
+        foreach ($roles as $role_value => $role_name):
+        ?>
+        roleOptions += '<option value="<?php echo esc_js($role_value); ?>"><?php echo esc_js($role_name); ?></option>';
+        <?php endforeach; ?>
+
+        var newRow = '<div class="cfzt-role-mapping-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">' +
+            '<input type="text" name="cfzt_settings[role_mapping][' + roleMappingIndex + '][group]" placeholder="Cloudflare group name" class="regular-text" style="flex: 1;">' +
+            '<span>→</span>' +
+            '<select name="cfzt_settings[role_mapping][' + roleMappingIndex + '][role]" class="regular-text" style="flex: 1;">' + roleOptions + '</select>' +
+            '<button type="button" class="button cfzt-remove-mapping" style="color: #d63638;"><span class="dashicons dashicons-trash"></span></button>' +
+            '</div>';
+
+        $('#cfzt-role-mappings').append(newRow);
+        roleMappingIndex++;
+    });
+
+    // Role mapping - Remove row
+    $(document).on('click', '.cfzt-remove-mapping', function() {
+        if ($('.cfzt-role-mapping-row').length > 1) {
+            $(this).closest('.cfzt-role-mapping-row').remove();
+        } else {
+            alert('<?php _e('You must have at least one role mapping.', 'cf-zero-trust'); ?>');
+        }
+    });
+
+    // Import/Export functionality
+    var importFileData = null;
+
+    // Enable import button when file is selected
+    $('#cfzt-import-file').on('change', function() {
+        var file = this.files[0];
+        if (file && file.type === 'application/json') {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                importFileData = e.target.result;
+                $('#cfzt-import-settings').prop('disabled', false);
+            };
+            reader.readAsText(file);
+        } else {
+            importFileData = null;
+            $('#cfzt-import-settings').prop('disabled', true);
+            if (file) {
+                alert('<?php _e('Please select a valid JSON file.', 'cf-zero-trust'); ?>');
+            }
+        }
+    });
+
+    // Export settings
+    $('#cfzt-export-settings').on('click', function() {
+        var $btn = $(this);
+        var originalHtml = $btn.html();
+
+        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php _e('Exporting...', 'cf-zero-trust'); ?>');
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'cfzt_export_settings',
+                nonce: '<?php echo wp_create_nonce('cfzt_import_export'); ?>'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Create download link
+                    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(response.data.data, null, 2));
+                    var downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", response.data.filename);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+
+                    showToast('<?php _e('Settings exported successfully!', 'cf-zero-trust'); ?>', 'success');
+
+                    var html = '<div class="notice notice-success"><p>';
+                    html += '<strong><?php _e('Export Successful!', 'cf-zero-trust'); ?></strong><br>';
+                    html += '<?php _e('Your settings have been downloaded as', 'cf-zero-trust'); ?> <code>' + response.data.filename + '</code>';
+                    html += '</p></div>';
+                    $('#cfzt-import-export-result').html(html);
+                } else {
+                    showToast(response.data || '<?php _e('Export failed', 'cf-zero-trust'); ?>', 'error');
+                }
+            },
+            error: function() {
+                showToast('<?php _e('Export failed. Please try again.', 'cf-zero-trust'); ?>', 'error');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalHtml);
+            }
+        });
+    });
+
+    // Import settings
+    $('#cfzt-import-settings').on('click', function() {
+        if (!importFileData) {
+            alert('<?php _e('Please select a file first.', 'cf-zero-trust'); ?>');
+            return;
+        }
+
+        if (!confirm('<?php _e('Warning: This will replace your current settings. Are you sure you want to continue?', 'cf-zero-trust'); ?>')) {
+            return;
+        }
+
+        var $btn = $(this);
+        var originalHtml = $btn.html();
+
+        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php _e('Importing...', 'cf-zero-trust'); ?>');
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'cfzt_import_settings',
+                nonce: '<?php echo wp_create_nonce('cfzt_import_export'); ?>',
+                import_data: importFileData
+            },
+            success: function(response) {
+                if (response.success) {
+                    showToast('<?php _e('Settings imported successfully! Reloading page...', 'cf-zero-trust'); ?>', 'success');
+
+                    var html = '<div class="notice notice-success"><p>';
+                    html += '<strong><?php _e('Import Successful!', 'cf-zero-trust'); ?></strong><br>';
+                    html += response.data + '<br>';
+                    html += '<?php _e('The page will reload in 2 seconds...', 'cf-zero-trust'); ?>';
+                    html += '</p></div>';
+                    $('#cfzt-import-export-result').html(html);
+
+                    // Reload page after 2 seconds
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showToast(response.data || '<?php _e('Import failed', 'cf-zero-trust'); ?>', 'error');
+
+                    var html = '<div class="notice notice-error"><p>';
+                    html += '<strong><?php _e('Import Failed', 'cf-zero-trust'); ?></strong><br>';
+                    html += response.data;
+                    html += '</p></div>';
+                    $('#cfzt-import-export-result').html(html);
+
+                    $btn.prop('disabled', false).html(originalHtml);
+                }
+            },
+            error: function() {
+                showToast('<?php _e('Import failed. Please try again.', 'cf-zero-trust'); ?>', 'error');
+                $btn.prop('disabled', false).html(originalHtml);
+            }
+        });
+    });
 });
 </script>
 
