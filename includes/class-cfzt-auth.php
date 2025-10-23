@@ -46,6 +46,50 @@ class CFZT_Auth {
         add_action('wp_login', array($this, 'on_user_login'), 10, 2);
         add_action('wp_login_failed', array($this, 'on_login_failed'));
     }
+
+    /**
+     * Display formatted error message with troubleshooting steps
+     *
+     * @param string $error_title Main error title
+     * @param string $error_message Error description
+     * @param array $troubleshooting_steps Array of troubleshooting steps
+     * @param int $response_code HTTP response code
+     */
+    private function display_error($error_title, $error_message, $troubleshooting_steps = array(), $response_code = 403) {
+        $html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen-Sans, Ubuntu, Cantarell, \'Helvetica Neue\', sans-serif; max-width: 600px; margin: 50px auto; padding: 20px;">';
+
+        // Error header
+        $html .= '<div style="background: linear-gradient(135deg, #d63638, #c62828); color: white; padding: 20px; border-radius: 8px 8px 0 0;">';
+        $html .= '<h1 style="margin: 0; font-size: 24px;">❌ ' . esc_html($error_title) . '</h1>';
+        $html .= '</div>';
+
+        // Error message
+        $html .= '<div style="background: #fff; border: 1px solid #ddd; border-top: none; padding: 20px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
+        $html .= '<p style="font-size: 16px; line-height: 1.6; color: #333;">' . esc_html($error_message) . '</p>';
+
+        // Troubleshooting steps
+        if (!empty($troubleshooting_steps)) {
+            $html .= '<div style="background: #f0f6fc; border-left: 4px solid #2271b1; padding: 15px; margin: 20px 0;">';
+            $html .= '<h3 style="margin: 0 0 10px 0; font-size: 16px; color: #2271b1;">🔧 Troubleshooting Steps:</h3>';
+            $html .= '<ol style="margin: 0; padding-left: 20px;">';
+            foreach ($troubleshooting_steps as $step) {
+                $html .= '<li style="margin: 8px 0; line-height: 1.5;">' . wp_kses_post($step) . '</li>';
+            }
+            $html .= '</ol>';
+            $html .= '</div>';
+        }
+
+        // Back button
+        $html .= '<p style="margin-top: 20px;">';
+        $html .= '<a href="' . esc_url(wp_login_url()) . '" style="display: inline-block; background: #2271b1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600;">← ' . __('Back to Login', 'cf-zero-trust') . '</a>';
+        $html .= ' <a href="' . esc_url(admin_url('options-general.php?page=cf-zero-trust')) . '" style="display: inline-block; background: #ddd; color: #333; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; margin-left: 10px;">' . __('Plugin Settings', 'cf-zero-trust') . '</a>';
+        $html .= '</p>';
+
+        $html .= '</div>';
+        $html .= '</div>';
+
+        wp_die($html, $error_title, array('response' => $response_code));
+    }
     
     /**
      * Initialize SAML handler if needed
@@ -129,10 +173,15 @@ class CFZT_Auth {
         
         // Rate limiting
         if (!$this->security->check_rate_limit()) {
-            wp_die(
-                __('Too many authentication attempts. Please try again in 5 minutes.', 'cf-zero-trust'),
+            $this->display_error(
                 __('Rate Limit Exceeded', 'cf-zero-trust'),
-                array('response' => 429)
+                __('Too many authentication attempts have been made from your IP address. This is a security measure to prevent brute force attacks.', 'cf-zero-trust'),
+                array(
+                    __('Wait 5 minutes before trying again', 'cf-zero-trust'),
+                    __('Clear your browser cookies and cache', 'cf-zero-trust'),
+                    __('If this persists, contact your site administrator', 'cf-zero-trust')
+                ),
+                429
             );
         }
 
@@ -140,7 +189,15 @@ class CFZT_Auth {
         $state = sanitize_text_field($_GET['state']);
         if (!get_transient('cfzt_auth_state_' . $state)) {
             $this->log_authentication('unknown', false, 'Invalid state parameter');
-            wp_die(__('Invalid state parameter', 'cf-zero-trust'));
+            $this->display_error(
+                __('Invalid Authentication Request', 'cf-zero-trust'),
+                __('The authentication state parameter is invalid or has expired. This usually means the login request took too long or was tampered with.', 'cf-zero-trust'),
+                array(
+                    __('Try logging in again from the start', 'cf-zero-trust'),
+                    __('Make sure you complete the login within 5 minutes', 'cf-zero-trust'),
+                    __('Check that your system time is correct', 'cf-zero-trust')
+                )
+            );
         }
         delete_transient('cfzt_auth_state_' . $state);
 
@@ -149,7 +206,16 @@ class CFZT_Auth {
 
         if (!$token_data || !isset($token_data['access_token'])) {
             $this->log_authentication('unknown', false, 'Token exchange failed');
-            wp_die(__('Failed to exchange authorization code. Please check your Cloudflare Zero Trust configuration.', 'cf-zero-trust'));
+            $this->display_error(
+                __('Token Exchange Failed', 'cf-zero-trust'),
+                __('Unable to exchange the authorization code for an access token. This indicates a configuration issue with your Cloudflare application.', 'cf-zero-trust'),
+                array(
+                    __('Verify your <strong>Client Secret</strong> in plugin settings matches Cloudflare', 'cf-zero-trust'),
+                    __('Check that your <strong>Team Domain</strong> is correct', 'cf-zero-trust'),
+                    __('Ensure the <strong>Redirect URL</strong> matches exactly in Cloudflare: <code>' . esc_html(home_url('/wp-login.php?cfzt_callback=1')) . '</code>', 'cf-zero-trust'),
+                    __('Test your connection using the "Test Connection" button in plugin settings', 'cf-zero-trust')
+                )
+            );
         }
 
         // Get user info
@@ -157,7 +223,16 @@ class CFZT_Auth {
 
         if (!$user_info) {
             $this->log_authentication('unknown', false, 'Failed to retrieve user info');
-            wp_die(__('Failed to retrieve user information. Check your error logs for details.', 'cf-zero-trust'));
+            $this->display_error(
+                __('User Information Retrieval Failed', 'cf-zero-trust'),
+                __('Successfully authenticated with Cloudflare, but unable to retrieve your user information. This suggests an issue with the Cloudflare API or your application configuration.', 'cf-zero-trust'),
+                array(
+                    __('Check your Cloudflare application status and settings', 'cf-zero-trust'),
+                    __('Verify the application type (SaaS vs Self-hosted) is correct in plugin settings', 'cf-zero-trust'),
+                    __('Ensure your Cloudflare Access policy allows access to user info', 'cf-zero-trust'),
+                    __('Check WordPress error logs for more details', 'cf-zero-trust')
+                )
+            );
         }
         
         // Authenticate user
@@ -283,7 +358,16 @@ class CFZT_Auth {
         
         if (empty($email)) {
             $this->log_authentication('unknown', false, 'No email provided');
-            wp_die(__('No email address provided by Cloudflare Zero Trust.', 'cf-zero-trust'));
+            $this->display_error(
+                __('Missing Email Address', 'cf-zero-trust'),
+                __('Cloudflare Zero Trust did not provide an email address for your account. An email address is required to create or match a WordPress user.', 'cf-zero-trust'),
+                array(
+                    __('Verify your Cloudflare Access policy includes email in the JWT claims', 'cf-zero-trust'),
+                    __('Check that your identity provider (IdP) is properly configured', 'cf-zero-trust'),
+                    __('Ensure your Cloudflare application is set up to pass user email information', 'cf-zero-trust'),
+                    __('Contact your Cloudflare administrator if the issue persists', 'cf-zero-trust')
+                )
+            );
         }
         
         // Check if user exists
@@ -316,7 +400,30 @@ class CFZT_Auth {
             exit;
         } else {
             $this->log_authentication($email, false, 'User creation disabled or failed');
-            wp_die(__('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.', 'cf-zero-trust'));
+            $auto_create_enabled = isset($options['auto_create_users']) && $options['auto_create_users'] === 'yes';
+
+            if (!$auto_create_enabled) {
+                $this->display_error(
+                    __('Account Not Found', 'cf-zero-trust'),
+                    sprintf(__('No WordPress account exists for %s and automatic user creation is disabled.', 'cf-zero-trust'), '<strong>' . esc_html($email) . '</strong>'),
+                    array(
+                        __('Ask your site administrator to create a WordPress account for your email address', 'cf-zero-trust'),
+                        __('Or, ask your administrator to enable "Auto-create Users" in plugin settings', 'cf-zero-trust'),
+                        __('Ensure you\'re logging in with the correct Cloudflare account', 'cf-zero-trust')
+                    )
+                );
+            } else {
+                $this->display_error(
+                    __('User Creation Failed', 'cf-zero-trust'),
+                    sprintf(__('Automatic user creation is enabled, but creating an account for %s failed. This may be a permissions issue or a configuration problem.', 'cf-zero-trust'), '<strong>' . esc_html($email) . '</strong>'),
+                    array(
+                        __('Check WordPress error logs for more details about the failure', 'cf-zero-trust'),
+                        __('Verify the default role setting in plugin configuration is valid', 'cf-zero-trust'),
+                        __('Ensure WordPress has permission to create new users', 'cf-zero-trust'),
+                        __('Contact your site administrator for assistance', 'cf-zero-trust')
+                    )
+                );
+            }
         }
     }
     
