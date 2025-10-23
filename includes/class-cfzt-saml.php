@@ -518,13 +518,16 @@ class CFZT_SAML {
             return $options['redirect_after_login'];
         }
 
-        // Check relay state or redirect_to parameter
+        // Check relay state (validate to prevent open redirects)
         if (!empty($relay_state) && $relay_state !== wp_login_url()) {
-            return $relay_state;
+            $redirect = wp_validate_redirect($relay_state, admin_url());
+            return $redirect;
         }
 
+        // Check redirect_to parameter (validate to prevent open redirects)
         if (isset($_REQUEST['redirect_to']) && !empty($_REQUEST['redirect_to'])) {
-            return $_REQUEST['redirect_to'];
+            $redirect = wp_validate_redirect($_REQUEST['redirect_to'], admin_url());
+            return $redirect;
         }
 
         // Default to admin dashboard
