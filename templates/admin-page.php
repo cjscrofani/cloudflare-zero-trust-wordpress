@@ -18,6 +18,9 @@ $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth
 
 // Check if setup is complete
 $is_configured = !empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret']);
+
+// Get setup progress
+$setup_progress = CFZT_Plugin::get_setup_progress();
 ?>
 
 <style>
@@ -326,6 +329,171 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
     color: #646970;
 }
 
+/* Setup Progress Indicator */
+.cfzt-setup-progress-container {
+    padding: 20px;
+    background: #f0f6fc;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.cfzt-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.cfzt-progress-title {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cfzt-progress-percentage {
+    font-weight: 700;
+    font-size: 18px;
+    color: #f38020;
+}
+
+.cfzt-progress-bar-wrapper {
+    height: 8px;
+    background: #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.cfzt-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f38020, #f6821f);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.cfzt-progress-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #646970;
+}
+
+.cfzt-toggle-tasks {
+    color: #2271b1;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.cfzt-toggle-tasks:hover {
+    color: #135e96;
+}
+
+.cfzt-remaining-tasks {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.cfzt-remaining-tasks ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cfzt-remaining-tasks li {
+    padding: 8px 0 8px 24px;
+    position: relative;
+    color: #646970;
+}
+
+.cfzt-remaining-tasks li:before {
+    content: "○";
+    position: absolute;
+    left: 0;
+    color: #f38020;
+    font-weight: bold;
+}
+
+.cfzt-setup-complete {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #edfaef;
+    border-bottom: 1px solid #ccd0d4;
+    color: #1d2327;
+}
+
+.cfzt-setup-complete strong {
+    color: #00a32a;
+}
+
+/* Contextual Help Tooltips */
+.cfzt-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #2271b1;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: help;
+    margin-left: 6px;
+    position: relative;
+}
+
+.cfzt-help-icon:hover {
+    background: #135e96;
+}
+
+.cfzt-tooltip {
+    position: absolute;
+    background: #1d2327;
+    color: #fff;
+    padding: 12px 15px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 300px;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: none;
+    font-weight: normal;
+    text-align: left;
+}
+
+.cfzt-tooltip.active {
+    display: block;
+}
+
+.cfzt-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 6px solid #1d2327;
+}
+
+.cfzt-tooltip a {
+    color: #72aee6;
+    text-decoration: underline;
+}
+
+.cfzt-tooltip a:hover {
+    color: #a5d2ff;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 782px) {
     .cfzt-wizard-header {
@@ -440,6 +608,45 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
             <h1>Cloudflare Zero Trust Login</h1>
             <p>Secure WordPress authentication with Cloudflare Zero Trust</p>
         </div>
+
+        <!-- Setup Progress Indicator -->
+        <?php if ($setup_progress['percentage'] < 100): ?>
+        <div class="cfzt-setup-progress-container">
+            <div class="cfzt-progress-header">
+                <span class="cfzt-progress-title">
+                    <span class="dashicons dashicons-admin-settings" style="font-size: 16px; width: 16px; height: 16px;"></span>
+                    <?php _e('Setup Progress', 'cf-zero-trust'); ?>
+                </span>
+                <span class="cfzt-progress-percentage"><?php echo esc_html($setup_progress['percentage']); ?>%</span>
+            </div>
+            <div class="cfzt-progress-bar-wrapper">
+                <div class="cfzt-progress-bar" style="width: <?php echo esc_attr($setup_progress['percentage']); ?>%;"></div>
+            </div>
+            <div class="cfzt-progress-details">
+                <span><?php echo esc_html($setup_progress['completed_count']); ?> of <?php echo esc_html($setup_progress['total_count']); ?> tasks completed</span>
+                <?php if (!empty($setup_progress['incomplete'])): ?>
+                <button type="button" class="button-link cfzt-toggle-tasks">
+                    <?php _e('View remaining tasks', 'cf-zero-trust'); ?> ▼
+                </button>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($setup_progress['incomplete'])): ?>
+            <div class="cfzt-remaining-tasks" style="display: none;">
+                <ul>
+                    <?php foreach ($setup_progress['incomplete'] as $task): ?>
+                    <li><?php echo esc_html($task); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php elseif ($setup_progress['percentage'] === 100): ?>
+        <div class="cfzt-setup-complete">
+            <span class="dashicons dashicons-yes-alt" style="color: #00a32a; font-size: 20px;"></span>
+            <strong><?php _e('Setup Complete!', 'cf-zero-trust'); ?></strong>
+            <span><?php _e('Your Cloudflare Zero Trust integration is fully configured.', 'cf-zero-trust'); ?></span>
+        </div>
+        <?php endif; ?>
 
         <!-- Mode Toggle -->
         <div class="cfzt-wizard-mode-toggle">
@@ -571,13 +778,19 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     <!-- OIDC Fields -->
                     <div id="cfzt-step3-oidc" style="display: <?php echo $auth_method === 'oauth2' ? 'block' : 'none'; ?>;">
                         <div class="cfzt-form-group">
-                            <label for="cfzt_team_domain">Team Domain *</label>
+                            <label for="cfzt_team_domain">
+                                Team Domain *
+                                <span class="cfzt-help-icon" data-tooltip="Your unique Cloudflare team domain. Found in your application's Issuer URL. Example: yourteam.cloudflareaccess.com">?</span>
+                            </label>
                             <input type="text" id="cfzt_team_domain" name="cfzt_settings[team_domain]" value="<?php echo esc_attr($options['team_domain'] ?? ''); ?>" class="regular-text" placeholder="yourteam.cloudflareaccess.com" required>
                             <p class="description">Found in your Cloudflare Issuer URL (without https://)</p>
                         </div>
 
                         <div class="cfzt-form-group">
-                            <label for="cfzt_app_type">Application Type *</label>
+                            <label for="cfzt_app_type">
+                                Application Type *
+                                <span class="cfzt-help-icon" data-tooltip="SaaS applications use Cloudflare's standard OIDC endpoints and are production-ready. Self-hosted is for custom OAuth2 implementations.">?</span>
+                            </label>
                             <select id="cfzt_app_type" name="cfzt_settings[app_type]" class="regular-text">
                                 <option value="saas" <?php selected($options['app_type'] ?? 'saas', 'saas'); ?>>SaaS (Recommended)</option>
                                 <option value="self-hosted" <?php selected($options['app_type'] ?? '', 'self-hosted'); ?>>Self-hosted</option>
@@ -586,13 +799,19 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                         </div>
 
                         <div class="cfzt-form-group">
-                            <label for="cfzt_client_id">Client ID *</label>
+                            <label for="cfzt_client_id">
+                                Client ID *
+                                <span class="cfzt-help-icon" data-tooltip="A unique identifier for your application provided by Cloudflare. Looks like a long hexadecimal string.">?</span>
+                            </label>
                             <input type="text" id="cfzt_client_id" name="cfzt_settings[client_id]" value="<?php echo esc_attr($options['client_id'] ?? ''); ?>" class="regular-text" required>
                             <p class="description">From your Cloudflare application</p>
                         </div>
 
                         <div class="cfzt-form-group">
-                            <label for="cfzt_client_secret">Client Secret *</label>
+                            <label for="cfzt_client_secret">
+                                Client Secret *
+                                <span class="cfzt-help-icon" data-tooltip="A secret key used to authenticate your application with Cloudflare. Keep this secure! It will be encrypted in your database.">?</span>
+                            </label>
                             <input type="password" id="cfzt_client_secret" name="cfzt_settings[client_secret]" value="<?php echo isset($options['client_secret']) ? esc_attr($security->decrypt_data($options['client_secret'])) : ''; ?>" class="regular-text" required>
                             <p class="description">From your Cloudflare application (will be encrypted)</p>
                         </div>
@@ -629,7 +848,10 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;">User & Login Settings</h3>
 
                     <div class="cfzt-form-group">
-                        <label for="cfzt_login_mode">Login Mode</label>
+                        <label for="cfzt_login_mode">
+                            Login Mode
+                            <span class="cfzt-help-icon" data-tooltip="Primary mode disables WordPress login, forcing all users to use Cloudflare. Secondary mode keeps both options available.">?</span>
+                        </label>
                         <select id="cfzt_login_mode" name="cfzt_settings[login_mode]" class="regular-text">
                             <option value="secondary" <?php selected($options['login_mode'] ?? 'secondary', 'secondary'); ?>>Secondary - Show both login options</option>
                             <option value="primary" <?php selected($options['login_mode'] ?? '', 'primary'); ?>>Primary - Cloudflare only</option>
@@ -638,7 +860,10 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     </div>
 
                     <div class="cfzt-form-group">
-                        <label for="cfzt_auto_create_users">Auto-create Users</label>
+                        <label for="cfzt_auto_create_users">
+                            Auto-create Users
+                            <span class="cfzt-help-icon" data-tooltip="When enabled, WordPress user accounts are automatically created for authenticated Cloudflare users on their first login. If disabled, only existing WordPress users can log in.">?</span>
+                        </label>
                         <select id="cfzt_auto_create_users" name="cfzt_settings[auto_create_users]" class="regular-text">
                             <option value="yes" <?php selected($options['auto_create_users'] ?? 'yes', 'yes'); ?>>Yes</option>
                             <option value="no" <?php selected($options['auto_create_users'] ?? '', 'no'); ?>>No</option>
@@ -647,7 +872,10 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     </div>
 
                     <div class="cfzt-form-group">
-                        <label for="cfzt_default_role">Default User Role</label>
+                        <label for="cfzt_default_role">
+                            Default User Role
+                            <span class="cfzt-help-icon" data-tooltip="New users created through Cloudflare authentication will be assigned this WordPress role. Choose carefully based on your security needs.">?</span>
+                        </label>
                         <select id="cfzt_default_role" name="cfzt_settings[default_role]" class="regular-text">
                             <?php wp_dropdown_roles($options['default_role'] ?? 'subscriber'); ?>
                         </select>
@@ -655,7 +883,10 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     </div>
 
                     <div class="cfzt-form-group">
-                        <label for="cfzt_enable_logging">Enable Logging</label>
+                        <label for="cfzt_enable_logging">
+                            Enable Logging
+                            <span class="cfzt-help-icon" data-tooltip="Logs authentication attempts to your database for debugging and monitoring. Includes timestamp, user, IP address, and success status.">?</span>
+                        </label>
                         <select id="cfzt_enable_logging" name="cfzt_settings[enable_logging]" class="regular-text">
                             <option value="yes" <?php selected($options['enable_logging'] ?? 'no', 'yes'); ?>>Yes</option>
                             <option value="no" <?php selected($options['enable_logging'] ?? '', 'no'); ?>>No</option>
@@ -885,6 +1116,72 @@ jQuery(document).ready(function($) {
             btn.text('<?php _e('Switch to Advanced Mode', 'cf-zero-trust'); ?>');
         } else {
             btn.text('<?php _e('Switch to Wizard Mode', 'cf-zero-trust'); ?>');
+        }
+    });
+
+    // Toggle remaining tasks
+    $('.cfzt-toggle-tasks').on('click', function() {
+        $('.cfzt-remaining-tasks').slideToggle();
+        var btn = $(this);
+        if (btn.text().includes('View')) {
+            btn.html('<?php _e('Hide remaining tasks', 'cf-zero-trust'); ?> ▲');
+        } else {
+            btn.html('<?php _e('View remaining tasks', 'cf-zero-trust'); ?> ▼');
+        }
+    });
+
+    // Contextual help tooltips
+    var activeTooltip = null;
+
+    $('.cfzt-help-icon').on('click', function(e) {
+        e.stopPropagation();
+        var $icon = $(this);
+        var tooltipText = $icon.data('tooltip');
+
+        // Remove any existing tooltips
+        $('.cfzt-tooltip').remove();
+
+        // If clicking the same icon, just close
+        if (activeTooltip === $icon[0]) {
+            activeTooltip = null;
+            return;
+        }
+
+        // Create new tooltip
+        var $tooltip = $('<div class="cfzt-tooltip active">' + tooltipText + '</div>');
+        $('body').append($tooltip);
+
+        // Position tooltip
+        var iconOffset = $icon.offset();
+        var iconHeight = $icon.outerHeight();
+        var tooltipWidth = $tooltip.outerWidth();
+
+        $tooltip.css({
+            top: iconOffset.top + iconHeight + 10,
+            left: Math.max(10, iconOffset.left - (tooltipWidth / 2) + 9) // Center under icon
+        });
+
+        // Adjust if tooltip goes off screen
+        var tooltipRight = $tooltip.offset().left + tooltipWidth;
+        var windowWidth = $(window).width();
+        if (tooltipRight > windowWidth - 10) {
+            $tooltip.css('left', windowWidth - tooltipWidth - 10);
+        }
+
+        activeTooltip = $icon[0];
+    });
+
+    // Close tooltip when clicking elsewhere
+    $(document).on('click', function() {
+        $('.cfzt-tooltip').remove();
+        activeTooltip = null;
+    });
+
+    // Close tooltip on escape key
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $('.cfzt-tooltip').remove();
+            activeTooltip = null;
         }
     });
 
