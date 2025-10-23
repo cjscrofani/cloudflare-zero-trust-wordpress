@@ -677,8 +677,18 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
                     </div>
 
                     <div class="cfzt-info-box">
+                        <strong>Before Saving:</strong>
+                        <p style="margin: 10px 0;">We recommend testing your connection to Cloudflare before saving:</p>
+                        <button type="button" id="cfzt-test-connection-wizard" class="button button-secondary" style="margin-bottom: 15px;">
+                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> Test Connection Now
+                        </button>
+                        <div id="cfzt-test-results-wizard" style="display: none;"></div>
+                    </div>
+
+                    <div class="cfzt-info-box">
                         <strong>Next Steps:</strong>
                         <ol style="margin: 10px 0 0 20px;">
+                            <li>Test your connection (recommended)</li>
                             <li>Click "Save Configuration" below</li>
                             <li>Visit your WordPress login page</li>
                             <li>Click "Login with Cloudflare Zero Trust"</li>
@@ -757,6 +767,53 @@ $is_configured = !empty($options['team_domain']) && !empty($options['client_id']
 
 .cfzt-toast-icon {
     font-size: 20px;
+}
+
+/* Live validation styles */
+.cfzt-field-valid {
+    border-color: #00a32a !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2300a32a"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-field-invalid {
+    border-color: #d63638 !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23d63638"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-field-warning {
+    border-color: #dba617 !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23dba617"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-validation-message {
+    display: block;
+    margin-top: 5px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.cfzt-validation-message.valid {
+    color: #00a32a;
+}
+
+.cfzt-validation-message.invalid {
+    color: #d63638;
+}
+
+.cfzt-validation-message.warning {
+    color: #dba617;
 }
 </style>
 
@@ -1025,6 +1082,235 @@ jQuery(document).ready(function($) {
             }, 4000);
         }
     });
+
+    // Test connection functionality
+    function testConnection($button, $resultsContainer) {
+        var originalHtml = $button.html();
+        $button.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="margin-top: 3px;"></span> Testing...');
+
+        if ($resultsContainer) {
+            $resultsContainer.hide().html('');
+        }
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'cfzt_test_connection',
+                nonce: '<?php echo wp_create_nonce('cfzt_test_connection'); ?>'
+            },
+            success: function(response) {
+                var html = '';
+
+                if (response.success) {
+                    html = '<div class="cfzt-success-box" style="margin-top: 15px;">';
+                    html += '<strong style="color: #00a32a;">✓ ' + response.data.message + '</strong>';
+
+                    if (response.data.details && response.data.details.length > 0) {
+                        html += '<ul style="margin: 10px 0 0 20px;">';
+                        response.data.details.forEach(function(detail) {
+                            html += '<li>' + detail + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (response.data.warnings && response.data.warnings.length > 0) {
+                        html += '<div style="margin-top: 10px; padding: 10px; background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107;">';
+                        html += '<strong>⚠ Warnings:</strong><ul style="margin: 5px 0 0 20px;">';
+                        response.data.warnings.forEach(function(warning) {
+                            html += '<li>' + warning + '</li>';
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    html += '</div>';
+                    showToast('Connection test passed!', 'success');
+                } else {
+                    html = '<div class="cfzt-warning-box" style="margin-top: 15px; background: #fcf2f2; border-left-color: #d63638;">';
+                    html += '<strong style="color: #d63638;">✗ ' + (response.data.message || 'Connection test failed') + '</strong>';
+
+                    if (response.data.issues && response.data.issues.length > 0) {
+                        html += '<ul style="margin: 10px 0 0 20px;">';
+                        response.data.issues.forEach(function(issue) {
+                            html += '<li>' + issue + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (response.data.warnings && response.data.warnings.length > 0) {
+                        html += '<div style="margin-top: 10px; padding: 10px; background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107;">';
+                        html += '<strong>⚠ Additional warnings:</strong><ul style="margin: 5px 0 0 20px;">';
+                        response.data.warnings.forEach(function(warning) {
+                            html += '<li>' + warning + '</li>';
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    html += '</div>';
+                    showToast('Connection test failed', 'error');
+                }
+
+                if ($resultsContainer) {
+                    $resultsContainer.html(html).slideDown();
+                }
+            },
+            error: function() {
+                var html = '<div class="cfzt-warning-box" style="margin-top: 15px; background: #fcf2f2; border-left-color: #d63638;">';
+                html += '<strong style="color: #d63638;">✗ Connection test failed</strong>';
+                html += '<p>An unexpected error occurred. Please try again.</p>';
+                html += '</div>';
+
+                if ($resultsContainer) {
+                    $resultsContainer.html(html).slideDown();
+                }
+                showToast('Connection test failed', 'error');
+            },
+            complete: function() {
+                $button.prop('disabled', false).html(originalHtml);
+            }
+        });
+    }
+
+    // Test connection from wizard
+    $('#cfzt-test-connection-wizard').on('click', function() {
+        testConnection($(this), $('#cfzt-test-results-wizard'));
+    });
+
+    // Test connection from success message
+    $(document).on('click', '#cfzt-test-connection-btn', function() {
+        testConnection($(this), null);
+    });
+
+    // Add spinning animation for dashicons
+    $('<style>.dashicons.spin { animation: spin 1s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }</style>').appendTo('head');
+
+    // Live validation for form fields
+    function validateField($field, rules) {
+        var value = $field.val().trim();
+        var $validationMsg = $field.next('.cfzt-validation-message');
+
+        // Create validation message element if it doesn't exist
+        if ($validationMsg.length === 0) {
+            $validationMsg = $('<span class="cfzt-validation-message"></span>');
+            $field.after($validationMsg);
+        }
+
+        // Remove existing classes
+        $field.removeClass('cfzt-field-valid cfzt-field-invalid cfzt-field-warning');
+        $validationMsg.removeClass('valid invalid warning').text('');
+
+        if (value === '') {
+            return; // Don't validate empty fields (unless required)
+        }
+
+        var isValid = true;
+        var message = '';
+        var isWarning = false;
+
+        // Apply validation rules
+        if (rules.teamDomain) {
+            if (!value.match(/^[a-z0-9][a-z0-9-]*\.cloudflareaccess\.com$/i)) {
+                isValid = false;
+                message = 'Should end with .cloudflareaccess.com';
+            } else {
+                message = 'Valid team domain format';
+            }
+        }
+
+        if (rules.clientId) {
+            if (value.length < 16) {
+                isValid = false;
+                message = 'Client ID seems too short';
+            } else if (!value.match(/^[a-f0-9]+$/i)) {
+                isWarning = true;
+                message = 'Client ID usually contains only hex characters';
+            } else {
+                message = 'Valid client ID format';
+            }
+        }
+
+        if (rules.clientSecret) {
+            if (value === '[SET VIA CONSTANT]') {
+                isWarning = true;
+                message = 'Value set via constant (cannot be changed here)';
+            } else if (value.length < 16) {
+                isValid = false;
+                message = 'Client secret seems too short';
+            } else {
+                message = 'Client secret looks good';
+            }
+        }
+
+        if (rules.url) {
+            try {
+                new URL(value);
+                message = 'Valid URL format';
+            } catch (e) {
+                isValid = false;
+                message = 'Please enter a valid URL';
+            }
+        }
+
+        if (rules.alphanumeric) {
+            if (!value.match(/^[a-z0-9-_]+$/i)) {
+                isValid = false;
+                message = 'Should contain only letters, numbers, hyphens, and underscores';
+            } else {
+                message = 'Valid format';
+            }
+        }
+
+        // Update field appearance
+        if (isValid && !isWarning) {
+            $field.addClass('cfzt-field-valid');
+            $validationMsg.addClass('valid').text(message);
+        } else if (isWarning) {
+            $field.addClass('cfzt-field-warning');
+            $validationMsg.addClass('warning').text(message);
+        } else {
+            $field.addClass('cfzt-field-invalid');
+            $validationMsg.addClass('invalid').text(message);
+        }
+
+        return isValid && !isWarning;
+    }
+
+    // Attach validation to fields
+    $('#cfzt_team_domain, #cfzt_team_domain_saml').on('input blur', function() {
+        validateField($(this), { teamDomain: true });
+    });
+
+    $('#cfzt_client_id').on('input blur', function() {
+        validateField($(this), { clientId: true });
+    });
+
+    $('#cfzt_client_secret').on('input blur', function() {
+        validateField($(this), { clientSecret: true });
+    });
+
+    $('#cfzt_saml_sso_target_url').on('input blur', function() {
+        validateField($(this), { alphanumeric: true });
+    });
+
+    $('#cfzt_saml_sp_entity_id').on('input blur', function() {
+        var val = $(this).val().trim();
+        if (val !== '') {
+            validateField($(this), { url: true });
+        }
+    });
+
+    // Trigger validation on existing values (for edit mode)
+    setTimeout(function() {
+        $('#cfzt_team_domain, #cfzt_team_domain_saml').each(function() {
+            if ($(this).val().trim() !== '') {
+                validateField($(this), { teamDomain: true });
+            }
+        });
+
+        if ($('#cfzt_client_id').val().trim() !== '') {
+            validateField($('#cfzt_client_id'), { clientId: true });
+        }
+    }, 500);
 });
 </script>
 

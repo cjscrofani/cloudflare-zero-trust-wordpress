@@ -37,6 +37,7 @@ class CFZT_Admin {
         add_action('admin_notices', array($this, 'admin_notices'));
         add_action('admin_notices', array($this, 'activation_notice'));
         add_action('wp_ajax_cfzt_dismiss_activation_notice', array($this, 'dismiss_activation_notice'));
+        add_action('wp_ajax_cfzt_test_connection', array($this, 'ajax_test_connection'));
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_cfzt_check_for_updates', array($this, 'ajax_check_for_updates'));
@@ -634,6 +635,144 @@ class CFZT_Admin {
         delete_transient('cfzt_activation_notice');
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX handler to test Cloudflare connection
+     */
+    public function ajax_test_connection() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_test_connection')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to test the connection.', 'cf-zero-trust'));
+        }
+
+        // Get current settings
+        $options = CFZT_Plugin::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
+        $team_domain = isset($options['team_domain']) ? $options['team_domain'] : '';
+
+        // Validate required fields
+        if (empty($team_domain)) {
+            wp_send_json_error(array(
+                'message' => __('Team Domain is required. Please configure your settings first.', 'cf-zero-trust'),
+                'issues' => array(__('Missing team domain', 'cf-zero-trust'))
+            ));
+        }
+
+        $issues = array();
+        $warnings = array();
+
+        // Test OIDC connection
+        if ($auth_method === 'oauth2') {
+            $client_id = isset($options['client_id']) ? $options['client_id'] : '';
+            $app_type = isset($options['app_type']) ? $options['app_type'] : 'saas';
+
+            if (empty($client_id)) {
+                $issues[] = __('Client ID is not configured', 'cf-zero-trust');
+            }
+
+            // Test discovery endpoint
+            $discovery_url = 'https://' . $team_domain . '/.well-known/openid-configuration';
+            $response = wp_remote_get($discovery_url, array(
+                'timeout' => 10,
+                'sslverify' => true
+            ));
+
+            if (is_wp_error($response)) {
+                $issues[] = sprintf(
+                    __('Failed to connect to Cloudflare: %s', 'cf-zero-trust'),
+                    $response->get_error_message()
+                );
+                $issues[] = sprintf(
+                    __('Attempted URL: %s', 'cf-zero-trust'),
+                    $discovery_url
+                );
+            } else {
+                $status_code = wp_remote_retrieve_response_code($response);
+                $body = wp_remote_retrieve_body($response);
+
+                if ($status_code !== 200) {
+                    $issues[] = sprintf(
+                        __('Discovery endpoint returned status %d', 'cf-zero-trust'),
+                        $status_code
+                    );
+                } else {
+                    $discovery_data = json_decode($body, true);
+
+                    if (!$discovery_data || !isset($discovery_data['issuer'])) {
+                        $issues[] = __('Invalid discovery document received', 'cf-zero-trust');
+                    } else {
+                        // Verify issuer contains team domain
+                        if (strpos($discovery_data['issuer'], $team_domain) === false) {
+                            $warnings[] = sprintf(
+                                __('Team domain "%s" does not match issuer "%s"', 'cf-zero-trust'),
+                                $team_domain,
+                                $discovery_data['issuer']
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Check client secret
+            $client_secret = isset($options['client_secret']) ? $this->security->decrypt_data($options['client_secret']) : '';
+            if (empty($client_secret)) {
+                $issues[] = __('Client Secret is not configured', 'cf-zero-trust');
+            }
+
+        } else {
+            // Test SAML configuration
+            $sso_target_url = isset($options['saml_sso_target_url']) ? $options['saml_sso_target_url'] : '';
+
+            if (empty($sso_target_url)) {
+                $issues[] = __('SAML SSO Target URL is not configured', 'cf-zero-trust');
+            }
+
+            // Check for DOMDocument
+            if (!class_exists('DOMDocument')) {
+                $issues[] = __('PHP DOM extension is required for SAML but is not installed', 'cf-zero-trust');
+            }
+
+            $warnings[] = __('SAML signature validation is not implemented - not recommended for production', 'cf-zero-trust');
+        }
+
+        // Check SSL
+        if (!is_ssl() && !defined('WP_DEBUG')) {
+            $warnings[] = __('Your site is not using HTTPS. This is required for production use.', 'cf-zero-trust');
+        }
+
+        // Check encryption
+        if (!$this->security->is_encryption_available()) {
+            $warnings[] = __('OpenSSL is not available. Client secrets are stored with basic obfuscation only.', 'cf-zero-trust');
+        }
+
+        // Return results
+        if (!empty($issues)) {
+            wp_send_json_error(array(
+                'message' => __('Connection test failed. Please fix the following issues:', 'cf-zero-trust'),
+                'issues' => $issues,
+                'warnings' => $warnings
+            ));
+        } elseif (!empty($warnings)) {
+            wp_send_json_success(array(
+                'message' => __('Connection test passed with warnings:', 'cf-zero-trust'),
+                'warnings' => $warnings
+            ));
+        } else {
+            wp_send_json_success(array(
+                'message' => __('Connection test passed! Your configuration looks good.', 'cf-zero-trust'),
+                'details' => array(
+                    __('Team domain is reachable', 'cf-zero-trust'),
+                    __('Discovery endpoint is valid', 'cf-zero-trust'),
+                    __('All required fields are configured', 'cf-zero-trust')
+                )
+            ));
+        }
     }
     
     /**
