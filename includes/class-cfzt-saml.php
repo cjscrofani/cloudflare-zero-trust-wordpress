@@ -216,7 +216,7 @@ class CFZT_SAML {
                 ? $options['redirect_after_logout']
                 : home_url();
 
-            wp_redirect($redirect_to);
+            wp_safe_redirect($redirect_to);
             exit;
         }
     }

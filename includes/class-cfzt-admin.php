@@ -996,17 +996,17 @@ class CFZT_Admin {
             $warnings[] = __('OpenSSL is not available. Client secrets are stored with basic obfuscation only.', 'cf-zero-trust');
         }
 
-        // Return results
+        // Return results (HTML-escape for XSS prevention)
         if (!empty($issues)) {
             wp_send_json_error(array(
                 'message' => __('Connection test failed. Please fix the following issues:', 'cf-zero-trust'),
-                'issues' => $issues,
-                'warnings' => $warnings
+                'issues' => array_map('esc_html', $issues),
+                'warnings' => array_map('esc_html', $warnings)
             ));
         } elseif (!empty($warnings)) {
             wp_send_json_success(array(
                 'message' => __('Connection test passed with warnings:', 'cf-zero-trust'),
-                'warnings' => $warnings
+                'warnings' => array_map('esc_html', $warnings)
             ));
         } else {
             wp_send_json_success(array(
