@@ -345,4 +345,73 @@ class CFZT_Plugin {
     public static function clear_options_cache(): void {
         self::$cached_options = null;
     }
+
+    /**
+     * Get setup progress information
+     *
+     * Calculates the percentage and list of completed/incomplete setup tasks
+     *
+     * @since 1.0.3
+     *
+     * @return array Array with 'percentage', 'completed', and 'incomplete' keys
+     */
+    public static function get_setup_progress(): array {
+        $options = self::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
+
+        $tasks = array(
+            'team_domain' => array(
+                'label' => __('Team Domain configured', 'cf-zero-trust'),
+                'completed' => !empty($options['team_domain'])
+            ),
+            'auth_credentials' => array(
+                'label' => $auth_method === 'saml'
+                    ? __('SAML credentials configured', 'cf-zero-trust')
+                    : __('OIDC credentials configured', 'cf-zero-trust'),
+                'completed' => $auth_method === 'saml'
+                    ? !empty($options['saml_sso_target_url'])
+                    : (!empty($options['client_id']) && !empty($options['client_secret']))
+            ),
+            'login_mode' => array(
+                'label' => __('Login mode selected', 'cf-zero-trust'),
+                'completed' => isset($options['login_mode'])
+            ),
+            'auto_create' => array(
+                'label' => __('User creation preference set', 'cf-zero-trust'),
+                'completed' => isset($options['auto_create_users'])
+            ),
+            'default_role' => array(
+                'label' => __('Default user role set', 'cf-zero-trust'),
+                'completed' => !empty($options['default_role'])
+            ),
+            'logging' => array(
+                'label' => __('Logging preference set', 'cf-zero-trust'),
+                'completed' => isset($options['enable_logging'])
+            )
+        );
+
+        $completed = array();
+        $incomplete = array();
+        $total_tasks = count($tasks);
+        $completed_count = 0;
+
+        foreach ($tasks as $key => $task) {
+            if ($task['completed']) {
+                $completed[] = $task['label'];
+                $completed_count++;
+            } else {
+                $incomplete[] = $task['label'];
+            }
+        }
+
+        $percentage = $total_tasks > 0 ? round(($completed_count / $total_tasks) * 100) : 0;
+
+        return array(
+            'percentage' => $percentage,
+            'completed' => $completed,
+            'incomplete' => $incomplete,
+            'completed_count' => $completed_count,
+            'total_count' => $total_tasks
+        );
+    }
 }

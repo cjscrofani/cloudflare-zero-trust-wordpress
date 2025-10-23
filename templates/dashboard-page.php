@@ -17,6 +17,9 @@ $security_status = $security->get_security_status();
 $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
 $is_configured = !empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret']);
 
+// Get setup progress
+$setup_progress = CFZT_Plugin::get_setup_progress();
+
 // Get authentication stats
 global $wpdb;
 $cfzt_users_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'cfzt_user' AND meta_value = '1'");
@@ -255,6 +258,42 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
                     <?php _e('Configure Now', 'cf-zero-trust'); ?>
                 </a>
             </p>
+        </div>
+    <?php endif; ?>
+
+    <!-- Setup Progress -->
+    <?php if ($setup_progress['percentage'] < 100): ?>
+        <div class="cfzt-section" style="background: #f0f6fc; border: 1px solid #c3e6fc; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <span class="dashicons dashicons-admin-settings" style="font-size: 18px;"></span>
+                    <?php _e('Setup Progress', 'cf-zero-trust'); ?>
+                </h2>
+                <span style="font-size: 20px; font-weight: 700; color: #f38020;">
+                    <?php echo esc_html($setup_progress['percentage']); ?>%
+                </span>
+            </div>
+            <div style="height: 12px; background: #ddd; border-radius: 6px; overflow: hidden; margin-bottom: 10px;">
+                <div style="height: 100%; background: linear-gradient(90deg, #f38020, #f6821f); border-radius: 6px; width: <?php echo esc_attr($setup_progress['percentage']); ?>%; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="font-size: 13px; color: #646970; margin-bottom: 10px;">
+                <?php echo esc_html($setup_progress['completed_count']); ?> of <?php echo esc_html($setup_progress['total_count']); ?> configuration tasks completed
+            </div>
+            <?php if (!empty($setup_progress['incomplete'])): ?>
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-top: 15px;">
+                    <strong style="display: block; margin-bottom: 10px;"><?php _e('Remaining Tasks:', 'cf-zero-trust'); ?></strong>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <?php foreach ($setup_progress['incomplete'] as $task): ?>
+                            <li style="margin: 5px 0;"><?php echo esc_html($task); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+            <div style="margin-top: 15px;">
+                <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
+                    <?php _e('Complete Setup', 'cf-zero-trust'); ?>
+                </a>
+            </div>
         </div>
     <?php endif; ?>
 
