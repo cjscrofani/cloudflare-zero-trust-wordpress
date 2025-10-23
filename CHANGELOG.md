@@ -7,6 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2025-10-23
+
+### Added
+
+#### Phase 1: Quick Wins
+- **Copy-to-clipboard functionality** for sensitive data (Team Domain, Client ID, URLs)
+- **Enhanced success messages** with visual toast notifications and animations
+- **Keyboard shortcuts**: Ctrl/Cmd+S to save settings from anywhere
+- **Mobile-responsive admin interface** with optimized layouts for small screens
+- **Dark mode support** with automatic system preference detection
+
+#### Phase 2: Testing & Validation
+- **Test Connection feature** with detailed diagnostics and troubleshooting guidance
+- **Live validation** for Team Domain and Client ID format checking
+- **Enhanced error messages** with formatted display, troubleshooting steps, and direct action links
+
+#### Phase 3: Enhanced Monitoring
+- **Dashboard overview page** showing real-time authentication statistics and recent activity
+- **Visual log viewer** with filtering, searching, sorting, CSV export, and pagination
+- **Users list integration** with CF Zero Trust column, filter views, and sortable columns
+
+#### Phase 4: Configuration Enhancements
+- **Setup progress indicator** showing configuration completion percentage with task breakdown
+- **Contextual help tooltips** with click-to-show hints for all critical settings
+- **Settings import/export** as JSON with encryption handling and validation
+- **Role mapping system** for assigning WordPress roles based on Cloudflare groups
+- **Email domain restrictions** for controlling which domains can authenticate
+
+#### Phase 5: Advanced Features
+- **Custom redirect URLs** for post-login and post-logout destinations
+- **Backup codes system** with 10 one-time emergency access codes per user
+  - User profile integration for code generation
+  - Login form toggle for backup code entry
+  - Copy and print functionality
+  - Automatic expiration after use
+- **Onboarding checklist** with dismissible admin notice guiding initial setup
+
+#### New Pages & Templates
+- `templates/dashboard-page.php`: Complete dashboard with statistics and charts
+- `templates/logs-page.php`: Dedicated logs viewer interface
+- `includes/class-cfzt-backup-codes.php`: Backup codes management system
+
+### Changed
+- Admin settings page completely redesigned with tabbed interface
+- Improved visual hierarchy and modern UI design
+- Enhanced form layouts with better grouping and spacing
+- Login UI now shows backup code option when available
+- All AJAX responses now properly escaped to prevent XSS
+- Uninstall process now includes complete data cleanup
+
+### Fixed
+
+#### Critical Security Fixes
+- **Open redirect vulnerability**: Added `wp_validate_redirect()` to all redirect handlers (OIDC and SAML)
+- **Brute force vulnerability**: Implemented rate limiting for backup code authentication
+- **XSS vulnerability**: HTML-escaped all test connection error messages and warnings
+- **Import injection**: Added proper sanitization for role mappings in settings import
+- **Redirect consistency**: Standardized SAML logout to use `wp_safe_redirect()`
+
+#### Code Quality Improvements
+- Added null checks in backup code count calculation to prevent warnings
+- Fixed missing redirect URL fields in import/export functionality
+- Improved array structure validation throughout
+- Enhanced error handling in all AJAX endpoints
+
+### Security
+- **5 critical security vulnerabilities patched** (see Fixed section above)
+- All user inputs now validated and sanitized
+- All outputs properly escaped with context-aware functions
+- Rate limiting prevents brute force attacks on emergency access codes
+- Backup codes stored using WordPress password hashing (bcrypt)
+- Complete CSRF protection with nonce verification on all AJAX calls
+- Proper capability checks on all administrative functions
+
+### Performance
+- Added options caching to reduce database queries
+- Optimized JavaScript with event delegation
+- Efficient DOM manipulation with minimal reflows
+- Reduced redundant API calls through smart caching
+
+### Developer Experience
+- Comprehensive inline documentation with examples
+- Consistent coding standards across all files
+- Proper use of WordPress hooks and filters
+- Clean separation of concerns (MVC-like structure)
+- Extensive logging for debugging and monitoring
+
+### Database
+- New table columns handled automatically on update
+- Proper cleanup of all data on uninstall including:
+  - Backup codes metadata
+  - Onboarding state
+  - Complete logs table removal
+  - All transients and options
+
+### Accessibility
+- Proper ARIA labels on dynamic content
+- Keyboard navigation support throughout
+- Screen reader friendly notifications
+- Focus management in modals and tooltips
+
+### Internationalization
+- All new strings properly wrapped with translation functions
+- Consistent text domain usage throughout
+- Support for pluralization where appropriate
+
 ## [1.0.3] - 2025-10-23
 
 ### Added
@@ -85,13 +191,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
-- **1.0.2**: Current release with manual update improvements
+- **1.0.4**: Major usability and security update - 19 new features, 5 critical security fixes
+- **1.0.3**: Code quality improvements and comprehensive logging
+- **1.0.2**: Manual update feature improvements
 - **1.0.1**: Initial public release refinements
 - **1.0.0**: Initial release with OIDC and experimental SAML support
 
 ---
 
 ## Upgrade Notes
+
+### Upgrading to 1.0.4
+
+**Important**: This is a major update with significant UI changes and new features.
+
+**What's New:**
+- Completely redesigned admin interface with modern tabbed layout
+- 19 new usability features including dashboard, logs viewer, and backup codes
+- 5 critical security vulnerabilities patched
+
+**After Upgrading:**
+1. Review the new Dashboard page (Tools → CF Zero Trust)
+2. Check out the new Logs viewer (Tools → CF Zero Trust Logs)
+3. Consider generating backup codes for your CF Zero Trust users
+4. Explore the new settings import/export feature
+5. Set up role mapping if you use Cloudflare groups
+6. Configure custom redirect URLs if desired
+
+**No Breaking Changes:**
+- All existing settings are preserved
+- Users remain authenticated
+- No configuration changes required
+- Backward compatible with 1.0.0-1.0.3
 
 ### Upgrading to Future Versions
 
