@@ -30,10 +30,15 @@ if (!is_multisite() || is_super_admin()) {
         delete_user_meta($user_id, 'cfzt_user');
         delete_user_meta($user_id, 'cfzt_sub');
         delete_user_meta($user_id, 'cfzt_issuer');
+        delete_user_meta($user_id, 'cfzt_auth_method');
         delete_user_meta($user_id, 'cfzt_last_login');
     }
+
+    // Also clean up any other cfzt_* user meta that might exist
+    $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'cfzt_%'");
     
     // Clean up transients
+    // This includes: cfzt_auth_state_*, cfzt_attempts_*, cfzt_flush_rewrite_rules, and GitHub updater cache
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_cfzt_%'");
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_cfzt_%'");
     

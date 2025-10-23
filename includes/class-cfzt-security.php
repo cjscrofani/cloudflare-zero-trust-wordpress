@@ -40,13 +40,14 @@ class CFZT_Security {
         // Use WordPress salts for encryption
         $key = wp_salt('auth');
         $salt = wp_salt('secure_auth');
-        
-        // Create a unique nonce for this encryption
-        $nonce = wp_create_nonce('cfzt_encrypt');
-        
+
+        // Create a unique random nonce for this encryption
+        // Using wp_generate_password for cryptographically secure random bytes
+        $nonce = bin2hex(wp_generate_password(16, false));
+
         // Combine data with nonce for added security
         $data_with_nonce = $nonce . '::' . $data;
-        
+
         // Use OpenSSL if available
         if ($this->is_encryption_available()) {
             $method = 'AES-256-CBC';
@@ -139,28 +140,28 @@ class CFZT_Security {
     
     /**
      * Get client IP address
-     * 
+     *
      * @return string IP address
      */
     private function get_client_ip() {
         // Check for Cloudflare's CF-Connecting-IP header first
         if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            return $_SERVER['HTTP_CF_CONNECTING_IP'];
+            return sanitize_text_field($_SERVER['HTTP_CF_CONNECTING_IP']);
         }
-        
+
         // Check for X-Forwarded-For
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $ips = explode(',', sanitize_text_field($_SERVER['HTTP_X_FORWARDED_FOR']));
             return trim($ips[0]);
         }
-        
+
         // Check for X-Real-IP
         if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-            return $_SERVER['HTTP_X_REAL_IP'];
+            return sanitize_text_field($_SERVER['HTTP_X_REAL_IP']);
         }
-        
+
         // Fallback to REMOTE_ADDR
-        return $_SERVER['REMOTE_ADDR'];
+        return isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : '';
     }
     
     /**
@@ -215,27 +216,27 @@ class CFZT_Security {
     
     /**
      * Generate session fingerprint
-     * 
+     *
      * @return string Session fingerprint
      */
     private function generate_session_fingerprint() {
         $fingerprint = '';
-        
+
         // User agent
         if (isset($_SERVER['HTTP_USER_AGENT'])) {
-            $fingerprint .= $_SERVER['HTTP_USER_AGENT'];
+            $fingerprint .= sanitize_text_field($_SERVER['HTTP_USER_AGENT']);
         }
-        
+
         // Accept headers
         if (isset($_SERVER['HTTP_ACCEPT'])) {
-            $fingerprint .= $_SERVER['HTTP_ACCEPT'];
+            $fingerprint .= sanitize_text_field($_SERVER['HTTP_ACCEPT']);
         }
-        
+
         // Accept language
         if (isset($_SERVER['HTTP_ACCEPT_LANGUAGE'])) {
-            $fingerprint .= substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2);
+            $fingerprint .= substr(sanitize_text_field($_SERVER['HTTP_ACCEPT_LANGUAGE']), 0, 2);
         }
-        
+
         return hash('sha256', $fingerprint);
     }
     
