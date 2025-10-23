@@ -25,6 +25,17 @@ class CFZT_User_Helper {
     public static function create_user(string $email, array $user_info, string $auth_method = 'oidc') {
         $options = CFZT_Plugin::get_option();
 
+        // Check email domain restrictions
+        if (!empty($options['email_domain_restrictions'])) {
+            if (!self::check_email_domain($email, $options['email_domain_restrictions'])) {
+                CFZT_Logger::warning('Email domain not allowed', array(
+                    'email' => $email,
+                    'auth_method' => $auth_method
+                ));
+                return false;
+            }
+        }
+
         // Generate username from email
         $username = sanitize_user(current(explode('@', $email)));
         $username = self::ensure_unique_username($username);
@@ -55,9 +66,9 @@ class CFZT_User_Helper {
             return false;
         }
 
-        // Set user role
-        $default_role = isset($options['default_role']) ? $options['default_role'] : CFZT_Plugin::DEFAULT_ROLE;
-        $user->set_role($default_role);
+        // Set user role (check role mapping first)
+        $role = self::determine_user_role($user_info, $options);
+        $user->set_role($role);
 
         // Update user meta
         update_user_meta($user_id, 'cfzt_user', true);
@@ -158,5 +169,73 @@ class CFZT_User_Helper {
         }
 
         return (bool) get_user_meta($user_id, 'cfzt_user', true);
+    }
+
+    /**
+     * Check if email domain is allowed
+     *
+     * @param string $email User email address
+     * @param string $allowed_domains Newline-separated list of allowed domains
+     * @return bool True if email domain is allowed
+     */
+    private static function check_email_domain(string $email, string $allowed_domains): bool {
+        $email_domain = strtolower(substr(strrchr($email, '@'), 1));
+
+        $domains = array_filter(array_map('trim', explode("\n", $allowed_domains)));
+        $domains = array_map('strtolower', $domains);
+
+        return in_array($email_domain, $domains);
+    }
+
+    /**
+     * Determine user role based on Cloudflare groups
+     *
+     * @param array $user_info User information from authentication provider
+     * @param array $options Plugin options
+     * @return string WordPress role slug
+     */
+    private static function determine_user_role(array $user_info, array $options): string {
+        $default_role = isset($options['default_role']) ? $options['default_role'] : CFZT_Plugin::DEFAULT_ROLE;
+
+        // Check if role mapping is configured
+        if (empty($options['role_mapping']) || !is_array($options['role_mapping'])) {
+            return $default_role;
+        }
+
+        // Get user's groups from user info
+        $user_groups = array();
+        if (isset($user_info['groups']) && is_array($user_info['groups'])) {
+            $user_groups = $user_info['groups'];
+        } elseif (isset($user_info['group'])) {
+            $user_groups = array($user_info['group']);
+        }
+
+        // If no groups found, return default role
+        if (empty($user_groups)) {
+            return $default_role;
+        }
+
+        // Check each mapping (first match wins)
+        foreach ($options['role_mapping'] as $mapping) {
+            if (empty($mapping['group']) || empty($mapping['role'])) {
+                continue;
+            }
+
+            // Check if user is in this group
+            foreach ($user_groups as $group) {
+                if (is_string($group) && strcasecmp($group, $mapping['group']) === 0) {
+                    // Verify the role exists in WordPress
+                    if (get_role($mapping['role'])) {
+                        CFZT_Logger::info('Role mapped via group', array(
+                            'group' => $mapping['group'],
+                            'role' => $mapping['role']
+                        ));
+                        return $mapping['role'];
+                    }
+                }
+            }
+        }
+
+        return $default_role;
     }
 }
