@@ -36,7 +36,9 @@ class CFZT_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_notices', array($this, 'admin_notices'));
         add_action('admin_notices', array($this, 'activation_notice'));
+        add_action('admin_notices', array($this, 'onboarding_checklist_notice'));
         add_action('wp_ajax_cfzt_dismiss_activation_notice', array($this, 'dismiss_activation_notice'));
+        add_action('wp_ajax_cfzt_dismiss_onboarding_checklist', array($this, 'ajax_dismiss_onboarding_checklist'));
         add_action('wp_ajax_cfzt_test_connection', array($this, 'ajax_test_connection'));
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
@@ -211,6 +213,14 @@ class CFZT_Admin {
         // Email domain restrictions
         if (isset($input['email_domain_restrictions'])) {
             $sanitized['email_domain_restrictions'] = sanitize_textarea_field($input['email_domain_restrictions']);
+        }
+
+        // Custom redirect URLs
+        if (isset($input['redirect_after_login'])) {
+            $sanitized['redirect_after_login'] = esc_url_raw($input['redirect_after_login']);
+        }
+        if (isset($input['redirect_after_logout'])) {
+            $sanitized['redirect_after_logout'] = esc_url_raw($input['redirect_after_logout']);
         }
 
         // Role mapping
@@ -699,6 +709,175 @@ class CFZT_Admin {
         // Dismiss the notice
         update_option('cfzt_activation_notice_dismissed', true);
         delete_transient('cfzt_activation_notice');
+
+        wp_send_json_success();
+    }
+
+    /**
+     * Display onboarding checklist notice
+     */
+    public function onboarding_checklist_notice() {
+        // Only show to admins
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Check if checklist was dismissed
+        if (get_user_meta(get_current_user_id(), 'cfzt_onboarding_dismissed', true)) {
+            return;
+        }
+
+        // Only show on relevant admin pages
+        $screen = get_current_screen();
+        $show_on_pages = array('dashboard', 'settings_page_cf-zero-trust', 'tools_page_cf-zero-trust-dashboard');
+        if (!$screen || !in_array($screen->id, $show_on_pages)) {
+            return;
+        }
+
+        // Get setup progress
+        $progress = CFZT_Plugin::get_setup_progress();
+
+        // Don't show if setup is complete
+        if ($progress['percentage'] >= 100) {
+            return;
+        }
+
+        // Define checklist items with actions
+        $options = CFZT_Plugin::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
+
+        $checklist = array(
+            array(
+                'title' => __('Configure Team Domain', 'cf-zero-trust'),
+                'completed' => !empty($options['team_domain']),
+                'action_url' => admin_url('options-general.php?page=cf-zero-trust#team-domain'),
+                'action_text' => __('Configure', 'cf-zero-trust')
+            ),
+            array(
+                'title' => $auth_method === 'saml'
+                    ? __('Configure SAML Settings', 'cf-zero-trust')
+                    : __('Configure OIDC Credentials', 'cf-zero-trust'),
+                'completed' => $auth_method === 'saml'
+                    ? !empty($options['saml_sso_target_url'])
+                    : (!empty($options['client_id']) && !empty($options['client_secret'])),
+                'action_url' => admin_url('options-general.php?page=cf-zero-trust#auth-credentials'),
+                'action_text' => __('Configure', 'cf-zero-trust')
+            ),
+            array(
+                'title' => __('Choose Login Mode', 'cf-zero-trust'),
+                'completed' => isset($options['login_mode']),
+                'action_url' => admin_url('options-general.php?page=cf-zero-trust#login-mode'),
+                'action_text' => __('Choose', 'cf-zero-trust')
+            ),
+            array(
+                'title' => __('Test Connection', 'cf-zero-trust'),
+                'completed' => false, // Always show as pending action
+                'action_url' => admin_url('options-general.php?page=cf-zero-trust#test-connection'),
+                'action_text' => __('Test Now', 'cf-zero-trust'),
+                'optional' => true
+            ),
+            array(
+                'title' => __('Review Security Settings', 'cf-zero-trust'),
+                'completed' => isset($options['default_role']) && isset($options['auto_create_users']),
+                'action_url' => admin_url('options-general.php?page=cf-zero-trust#security'),
+                'action_text' => __('Review', 'cf-zero-trust')
+            )
+        );
+
+        ?>
+        <div class="notice notice-info cfzt-onboarding-notice is-dismissible" data-dismiss-nonce="<?php echo wp_create_nonce('cfzt_dismiss_onboarding'); ?>">
+            <div style="display: flex; align-items: flex-start; padding: 12px 0;">
+                <div style="font-size: 32px; margin-right: 15px;">🚀</div>
+                <div style="flex: 1;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 16px;">
+                        <?php _e('Complete Your Cloudflare Zero Trust Setup', 'cf-zero-trust'); ?>
+                    </h3>
+                    <p style="margin: 0 0 15px 0;">
+                        <?php printf(__('You\'re %d%% done! Complete these steps to secure your WordPress login:', 'cf-zero-trust'), $progress['percentage']); ?>
+                    </p>
+
+                    <div class="cfzt-onboarding-checklist" style="margin-bottom: 10px;">
+                        <?php foreach ($checklist as $item): ?>
+                            <div class="cfzt-checklist-item" style="display: flex; align-items: center; margin: 8px 0;">
+                                <?php if ($item['completed']): ?>
+                                    <span class="dashicons dashicons-yes-alt" style="color: #00a32a; font-size: 20px; margin-right: 8px;"></span>
+                                <?php else: ?>
+                                    <span class="dashicons dashicons-marker" style="color: #f38020; font-size: 20px; margin-right: 8px;"></span>
+                                <?php endif; ?>
+
+                                <span style="flex: 1; <?php echo $item['completed'] ? 'text-decoration: line-through; opacity: 0.6;' : ''; ?>">
+                                    <?php echo esc_html($item['title']); ?>
+                                    <?php if (isset($item['optional']) && $item['optional']): ?>
+                                        <em style="color: #646970; font-size: 12px;">(<?php _e('recommended', 'cf-zero-trust'); ?>)</em>
+                                    <?php endif; ?>
+                                </span>
+
+                                <?php if (!$item['completed']): ?>
+                                    <a href="<?php echo esc_url($item['action_url']); ?>" class="button button-small" style="margin-left: 10px;">
+                                        <?php echo esc_html($item['action_text']); ?>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <p style="margin: 10px 0 0 0;">
+                        <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
+                            <?php _e('Go to Settings', 'cf-zero-trust'); ?>
+                        </a>
+                        <a href="<?php echo esc_url(admin_url('tools.php?page=cf-zero-trust-dashboard')); ?>" class="button">
+                            <?php _e('View Dashboard', 'cf-zero-trust'); ?>
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .cfzt-onboarding-notice {
+            border-left-color: #f38020 !important;
+        }
+        .cfzt-onboarding-notice h3 {
+            color: #1d2327;
+        }
+        .cfzt-onboarding-checklist {
+            background: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        </style>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('.cfzt-onboarding-notice').on('click', '.notice-dismiss', function() {
+                var nonce = $('.cfzt-onboarding-notice').data('dismiss-nonce');
+                $.post(ajaxurl, {
+                    action: 'cfzt_dismiss_onboarding_checklist',
+                    nonce: nonce
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * AJAX handler to dismiss onboarding checklist
+     */
+    public function ajax_dismiss_onboarding_checklist() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_onboarding')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to perform this action.', 'cf-zero-trust'));
+        }
+
+        // Dismiss the checklist for this user
+        update_user_meta(get_current_user_id(), 'cfzt_onboarding_dismissed', true);
 
         wp_send_json_success();
     }

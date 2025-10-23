@@ -209,7 +209,14 @@ class CFZT_SAML {
         // Handle logout response
         if (isset($_REQUEST['SAMLResponse']) || isset($_REQUEST['SAMLRequest'])) {
             wp_logout();
-            wp_redirect(home_url());
+
+            // Get custom logout redirect URL
+            $options = CFZT_Plugin::get_option();
+            $redirect_to = !empty($options['redirect_after_logout'])
+                ? $options['redirect_after_logout']
+                : home_url();
+
+            wp_redirect($redirect_to);
             exit;
         }
     }
@@ -415,12 +422,9 @@ class CFZT_SAML {
             
             // Trigger action for other plugins
             do_action('cfzt_user_authenticated', $user, $user_data);
-            
-            // Redirect
-            if (empty($redirect_to) || $redirect_to === wp_login_url()) {
-                $redirect_to = admin_url();
-            }
-            
+
+            // Determine redirect URL
+            $redirect_to = $this->get_login_redirect_url($redirect_to);
             wp_safe_redirect($redirect_to);
             exit;
         } else {
@@ -496,5 +500,34 @@ class CFZT_SAML {
      */
     private function log_authentication($identifier, $success, $message = '') {
         CFZT_Logger::auth_attempt($identifier, $success, 'saml', $message);
+    }
+
+    /**
+     * Get login redirect URL
+     *
+     * Checks for custom redirect URL, then relay state, then defaults
+     *
+     * @param string $relay_state Relay state from SAML
+     * @return string Redirect URL
+     */
+    private function get_login_redirect_url($relay_state = '') {
+        $options = CFZT_Plugin::get_option();
+
+        // Check for custom redirect URL setting
+        if (!empty($options['redirect_after_login'])) {
+            return $options['redirect_after_login'];
+        }
+
+        // Check relay state or redirect_to parameter
+        if (!empty($relay_state) && $relay_state !== wp_login_url()) {
+            return $relay_state;
+        }
+
+        if (isset($_REQUEST['redirect_to']) && !empty($_REQUEST['redirect_to'])) {
+            return $_REQUEST['redirect_to'];
+        }
+
+        // Default to admin dashboard
+        return admin_url();
     }
 }

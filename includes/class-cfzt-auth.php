@@ -45,6 +45,7 @@ class CFZT_Auth {
         add_filter('authenticate', array($this, 'maybe_disable_wp_login'), 30, 3);
         add_action('wp_login', array($this, 'on_user_login'), 10, 2);
         add_action('wp_login_failed', array($this, 'on_login_failed'));
+        add_action('wp_logout', array($this, 'handle_custom_logout_redirect'));
     }
 
     /**
@@ -393,9 +394,9 @@ class CFZT_Auth {
             
             // Trigger action for other plugins
             do_action('cfzt_user_authenticated', $user, $user_info);
-            
-            // Redirect to admin or specified URL
-            $redirect_to = isset($_REQUEST['redirect_to']) ? $_REQUEST['redirect_to'] : admin_url();
+
+            // Determine redirect URL
+            $redirect_to = $this->get_login_redirect_url();
             wp_safe_redirect($redirect_to);
             exit;
         } else {
@@ -496,7 +497,7 @@ class CFZT_Auth {
     
     /**
      * Get SAML metadata URL if using SAML
-     * 
+     *
      * @return string|null Metadata URL or null if not using SAML
      */
     public function get_saml_metadata_url() {
@@ -504,5 +505,44 @@ class CFZT_Auth {
             return $this->saml_handler->get_metadata_url();
         }
         return null;
+    }
+
+    /**
+     * Get login redirect URL
+     *
+     * Checks for custom redirect URL, then $_REQUEST['redirect_to'], then defaults
+     *
+     * @return string Redirect URL
+     */
+    private function get_login_redirect_url() {
+        $options = CFZT_Plugin::get_option();
+
+        // Check for custom redirect URL setting
+        if (!empty($options['redirect_after_login'])) {
+            return $options['redirect_after_login'];
+        }
+
+        // Check for redirect_to parameter
+        if (isset($_REQUEST['redirect_to']) && !empty($_REQUEST['redirect_to'])) {
+            return $_REQUEST['redirect_to'];
+        }
+
+        // Default to admin dashboard
+        return admin_url();
+    }
+
+    /**
+     * Handle custom logout redirect
+     *
+     * Redirects user to custom URL after logout if configured
+     */
+    public function handle_custom_logout_redirect() {
+        $options = CFZT_Plugin::get_option();
+
+        if (!empty($options['redirect_after_logout'])) {
+            add_filter('logout_redirect', function($redirect_to, $requested_redirect_to, $user) use ($options) {
+                return $options['redirect_after_logout'];
+            }, 10, 3);
+        }
     }
 }
