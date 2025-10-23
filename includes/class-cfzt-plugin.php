@@ -2,7 +2,21 @@
 /**
  * Main plugin class that coordinates all components
  *
+ * This is the core class that initializes and manages all plugin components.
+ * It follows the Singleton pattern to ensure only one instance exists and
+ * coordinates authentication, security, admin UI, and update checking.
+ *
  * @package CloudflareZeroTrustLogin
+ * @since   1.0.0
+ *
+ * @example
+ * // Get the plugin instance
+ * $plugin = CFZT_Plugin::get_instance();
+ *
+ * @example
+ * // Get plugin settings
+ * $options = CFZT_Plugin::get_option();
+ * $auth_method = CFZT_Plugin::get_option('auth_method', 'oauth2');
  */
 
 // Prevent direct access
@@ -143,19 +157,52 @@ class CFZT_Plugin {
      * Plugin activation
      */
     public static function activate() {
-        // Create necessary database tables or options
-        add_option('cfzt_settings', array(
-            'auth_method' => self::AUTH_METHOD_OIDC,
-            'app_type' => self::APP_TYPE_SAAS,
-            'team_domain' => '',
-            'client_id' => '',
-            'client_secret' => '',
-            'login_mode' => self::LOGIN_MODE_SECONDARY,
-            'auto_create_users' => self::OPTION_YES,
-            'default_role' => self::DEFAULT_ROLE,
-            'enable_logging' => self::OPTION_NO
-        ));
-        
+        // Check PHP version requirement
+        if (version_compare(PHP_VERSION, '7.2', '<')) {
+            deactivate_plugins(CFZT_PLUGIN_BASENAME);
+            wp_die(
+                '<h1>' . __('Plugin Activation Error', 'cf-zero-trust') . '</h1>' .
+                '<p>' . sprintf(
+                    __('Cloudflare Zero Trust Login requires PHP version 7.2 or higher. You are running PHP %s.', 'cf-zero-trust'),
+                    PHP_VERSION
+                ) . '</p>' .
+                '<p><a href="' . admin_url('plugins.php') . '">' . __('Return to Plugins', 'cf-zero-trust') . '</a></p>',
+                __('Plugin Activation Error', 'cf-zero-trust'),
+                array('back_link' => true)
+            );
+        }
+
+        // Check WordPress version requirement
+        global $wp_version;
+        if (version_compare($wp_version, '5.0', '<')) {
+            deactivate_plugins(CFZT_PLUGIN_BASENAME);
+            wp_die(
+                '<h1>' . __('Plugin Activation Error', 'cf-zero-trust') . '</h1>' .
+                '<p>' . sprintf(
+                    __('Cloudflare Zero Trust Login requires WordPress version 5.0 or higher. You are running WordPress %s.', 'cf-zero-trust'),
+                    $wp_version
+                ) . '</p>' .
+                '<p><a href="' . admin_url('plugins.php') . '">' . __('Return to Plugins', 'cf-zero-trust') . '</a></p>',
+                __('Plugin Activation Error', 'cf-zero-trust'),
+                array('back_link' => true)
+            );
+        }
+
+        // Check if settings already exist (don't overwrite on re-activation)
+        if (!get_option('cfzt_settings')) {
+            add_option('cfzt_settings', array(
+                'auth_method' => self::AUTH_METHOD_OIDC,
+                'app_type' => self::APP_TYPE_SAAS,
+                'team_domain' => '',
+                'client_id' => '',
+                'client_secret' => '',
+                'login_mode' => self::LOGIN_MODE_SECONDARY,
+                'auto_create_users' => self::OPTION_YES,
+                'default_role' => self::DEFAULT_ROLE,
+                'enable_logging' => self::OPTION_NO
+            ));
+        }
+
         // Create directories if needed
         $dirs = array(
             CFZT_PLUGIN_DIR . 'includes',
@@ -164,36 +211,66 @@ class CFZT_Plugin {
             CFZT_PLUGIN_DIR . 'assets/css',
             CFZT_PLUGIN_DIR . 'languages'
         );
-        
+
         foreach ($dirs as $dir) {
             if (!file_exists($dir)) {
                 wp_mkdir_p($dir);
             }
         }
-        
-        // Flush rewrite rules
+
+        // Set activation timestamp
+        add_option('cfzt_activated_time', current_time('timestamp'));
+        update_option('cfzt_version', CFZT_PLUGIN_VERSION);
+
+        // Flush rewrite rules for SAML endpoints
         flush_rewrite_rules();
+
+        // Log activation
+        CFZT_Logger::info('Plugin activated', array('version' => CFZT_PLUGIN_VERSION));
     }
     
     /**
      * Plugin deactivation
      */
     public static function deactivate() {
+        // Log deactivation
+        CFZT_Logger::info('Plugin deactivated');
+
         // Clean up transients
         global $wpdb;
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_cfzt_%'");
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_cfzt_%'");
-        
-        // Flush rewrite rules
+
+        // Clear options cache
+        self::clear_options_cache();
+
+        // Flush rewrite rules to remove SAML endpoints
         flush_rewrite_rules();
+
+        // Note: We intentionally do NOT delete settings or user meta on deactivation
+        // Only uninstall.php should do that (when plugin is fully deleted)
     }
     
     /**
-     * Get plugin option
+     * Get plugin option with automatic caching
      *
-     * @param string $option Option name
-     * @param mixed $default Default value
-     * @return mixed Option value
+     * This method retrieves plugin settings from the database and caches them
+     * for the duration of the request to improve performance. It also handles
+     * environment variable overrides for sensitive credentials.
+     *
+     * @since 1.0.0
+     *
+     * @param string|null $option Optional. Specific option key to retrieve. If null, returns all options.
+     * @param mixed $default Optional. Default value to return if option doesn't exist.
+     * @return mixed Option value, array of all options if $option is null, or $default if not found.
+     *
+     * @example
+     * // Get all options
+     * $options = CFZT_Plugin::get_option();
+     *
+     * @example
+     * // Get specific option with default
+     * $auth_method = CFZT_Plugin::get_option('auth_method', 'oauth2');
      */
     public static function get_option($option = null, $default = null) {
         // Use cached options if available
@@ -220,7 +297,17 @@ class CFZT_Plugin {
     /**
      * Clear the options cache
      *
-     * Call this after updating options to ensure fresh data is retrieved
+     * Call this method after updating plugin settings to ensure that the next
+     * call to get_option() retrieves fresh data from the database instead of
+     * using stale cached values.
+     *
+     * @since 1.0.3
+     *
+     * @return void
+     *
+     * @example
+     * update_option('cfzt_settings', $new_settings);
+     * CFZT_Plugin::clear_options_cache();
      */
     public static function clear_options_cache(): void {
         self::$cached_options = null;

@@ -175,12 +175,16 @@ class CFZT_SAML {
     private function handle_acs() {
         // Rate limiting
         if (!$this->security->check_rate_limit()) {
-            wp_die('Too many authentication attempts. Please try again in 5 minutes.', 'Rate Limit Exceeded', array('response' => 429));
+            wp_die(
+                __('Too many authentication attempts. Please try again in 5 minutes.', 'cf-zero-trust'),
+                __('Rate Limit Exceeded', 'cf-zero-trust'),
+                array('response' => 429)
+            );
         }
-        
+
         if (!isset($_POST['SAMLResponse'])) {
             $this->log_authentication('unknown', false, 'No SAML response received');
-            wp_die('No SAML response received.');
+            wp_die(__('No SAML response received.', 'cf-zero-trust'));
         }
         
         $saml_response = base64_decode($_POST['SAMLResponse']);
@@ -191,7 +195,7 @@ class CFZT_SAML {
         
         if (!$user_data) {
             $this->log_authentication('unknown', false, 'Invalid SAML response');
-            wp_die('Invalid SAML response. Please check your Cloudflare Zero Trust configuration.');
+            wp_die(__('Invalid SAML response. Please check your Cloudflare Zero Trust configuration.', 'cf-zero-trust'));
         }
         
         // Authenticate user
@@ -385,7 +389,7 @@ class CFZT_SAML {
         $email = $user_data['email'];
         if (empty($email)) {
             $this->log_authentication('unknown', false, 'No email in SAML assertion');
-            wp_die('No email address provided in SAML assertion.');
+            wp_die(__('No email address provided in SAML assertion.', 'cf-zero-trust'));
         }
         
         // Check if user exists
@@ -421,7 +425,7 @@ class CFZT_SAML {
             exit;
         } else {
             $this->log_authentication($email, false, 'User creation disabled or failed');
-            wp_die('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.');
+            wp_die(__('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.', 'cf-zero-trust'));
         }
     }
     
