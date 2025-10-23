@@ -28,11 +28,11 @@ class CFZT_Security {
     
     /**
      * Encrypt sensitive data
-     * 
+     *
      * @param string $data Data to encrypt
      * @return string Encrypted data
      */
-    public function encrypt_data($data) {
+    public function encrypt_data(string $data): string {
         if (empty($data)) {
             return '';
         }
@@ -62,11 +62,11 @@ class CFZT_Security {
     
     /**
      * Decrypt sensitive data
-     * 
+     *
      * @param string $encrypted_data Encrypted data
      * @return string Decrypted data
      */
-    public function decrypt_data($encrypted_data) {
+    public function decrypt_data(string $encrypted_data): string {
         if (empty($encrypted_data)) {
             return '';
         }
@@ -96,10 +96,10 @@ class CFZT_Security {
     
     /**
      * Get client secret (decrypted if necessary)
-     * 
+     *
      * @return string Client secret
      */
-    public function get_client_secret() {
+    public function get_client_secret(): string {
         $options = CFZT_Plugin::get_option();
         
         // Check if it's from a constant
@@ -113,19 +113,19 @@ class CFZT_Security {
     
     /**
      * Check if encryption is available
-     * 
+     *
      * @return bool
      */
-    public function is_encryption_available() {
+    public function is_encryption_available(): bool {
         return function_exists('openssl_encrypt') && function_exists('openssl_decrypt');
     }
     
     /**
      * Check rate limit
-     * 
+     *
      * @return bool True if within rate limit
      */
-    public function check_rate_limit() {
+    public function check_rate_limit(): bool {
         $ip = $this->get_client_ip();
         $attempts_key = 'cfzt_attempts_' . $ip;
         $attempts = get_transient($attempts_key) ?: 0;
@@ -143,7 +143,7 @@ class CFZT_Security {
      *
      * @return string IP address
      */
-    private function get_client_ip() {
+    private function get_client_ip(): string {
         // Check for Cloudflare's CF-Connecting-IP header first
         if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
             return sanitize_text_field($_SERVER['HTTP_CF_CONNECTING_IP']);
@@ -242,10 +242,10 @@ class CFZT_Security {
     
     /**
      * Validate session fingerprint
-     * 
+     *
      * @return bool True if valid
      */
-    public function validate_session_fingerprint() {
+    public function validate_session_fingerprint(): bool {
         if (!isset($_SESSION['cfzt_fingerprint'])) {
             return true; // No fingerprint to validate
         }
@@ -256,10 +256,10 @@ class CFZT_Security {
     
     /**
      * Get security status
-     * 
+     *
      * @return array Security status information
      */
-    public function get_security_status() {
+    public function get_security_status(): array {
         return array(
             'encryption_available' => $this->is_encryption_available(),
             'encryption_method' => $this->is_encryption_available() ? 'AES-256-CBC (OpenSSL)' : 'Basic Obfuscation',

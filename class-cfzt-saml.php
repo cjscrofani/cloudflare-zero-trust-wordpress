@@ -391,18 +391,17 @@ class CFZT_SAML {
         // Check if user exists
         $user = get_user_by('email', $email);
         
-        if (!$user && $options['auto_create_users'] === 'yes') {
-            $user = $this->create_user($email, $user_data);
+        if (!$user && $options['auto_create_users'] === CFZT_Plugin::OPTION_YES) {
+            $user = CFZT_User_Helper::create_user($email, $user_data, 'saml');
         }
-        
+
         if ($user) {
             // Log the user in
             wp_set_current_user($user->ID);
             wp_set_auth_cookie($user->ID, true);
-            
+
             // Update last login meta
-            update_user_meta($user->ID, 'cfzt_last_login', current_time('mysql'));
-            update_user_meta($user->ID, 'cfzt_auth_method', 'saml');
+            CFZT_User_Helper::update_last_login($user->ID, 'saml');
             
             // Protect session
             $this->security->protect_session();
@@ -424,78 +423,6 @@ class CFZT_SAML {
             $this->log_authentication($email, false, 'User creation disabled or failed');
             wp_die('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.');
         }
-    }
-    
-    /**
-     * Create new WordPress user from SAML data
-     * 
-     * @param string $email User email
-     * @param array $user_data User data from SAML
-     * @return WP_User|false User object or false on failure
-     */
-    private function create_user($email, $user_data) {
-        $options = CFZT_Plugin::get_option();
-        
-        // Generate username
-        $username = sanitize_user(current(explode('@', $email)));
-        $username = $this->ensure_unique_username($username);
-        
-        $user_id = wp_create_user(
-            $username,
-            wp_generate_password(),
-            $email
-        );
-        
-        if (is_wp_error($user_id)) {
-            error_log('[CF Zero Trust SAML] Failed to create user: ' . $user_id->get_error_message());
-            return false;
-        }
-        
-        $user = get_user_by('id', $user_id);
-        
-        // Set user role
-        $user->set_role($options['default_role']);
-        
-        // Update user meta
-        update_user_meta($user_id, 'cfzt_user', true);
-        update_user_meta($user_id, 'cfzt_auth_method', 'saml');
-        update_user_meta($user_id, 'cfzt_sub', $user_data['sub']);
-        
-        // Update display name if available
-        $display_name = $user_data['name'];
-        if (empty($display_name) && (!empty($user_data['given_name']) || !empty($user_data['family_name']))) {
-            $display_name = trim($user_data['given_name'] . ' ' . $user_data['family_name']);
-        }
-        
-        if (!empty($display_name)) {
-            wp_update_user(array(
-                'ID' => $user_id,
-                'display_name' => $display_name
-            ));
-        }
-        
-        // Trigger action for other plugins
-        do_action('cfzt_user_created', $user, $user_data);
-        
-        return $user;
-    }
-    
-    /**
-     * Ensure username is unique
-     * 
-     * @param string $username Proposed username
-     * @return string Unique username
-     */
-    private function ensure_unique_username($username) {
-        $original = $username;
-        $counter = 1;
-        
-        while (username_exists($username)) {
-            $username = $original . $counter;
-            $counter++;
-        }
-        
-        return $username;
     }
     
     /**
@@ -558,32 +485,12 @@ class CFZT_SAML {
     
     /**
      * Log authentication attempts
-     * 
+     *
      * @param string $identifier Email or username
      * @param bool $success Success status
      * @param string $message Optional message
      */
     private function log_authentication($identifier, $success, $message = '') {
-        $options = CFZT_Plugin::get_option();
-        
-        if (isset($options['enable_logging']) && $options['enable_logging'] === 'yes') {
-            $status = $success ? 'SUCCESS' : 'FAILED';
-            $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
-            $log_message = sprintf(
-                '[CF Zero Trust SAML] Authentication %s for: %s from IP: %s',
-                $status,
-                $identifier,
-                $remote_ip
-            );
-
-            if (!empty($message)) {
-                $log_message .= ' - ' . $message;
-            }
-
-            error_log($log_message);
-        }
-        
-        // Trigger action for other plugins to hook into
-        do_action('cfzt_authentication_attempt', $identifier, $success, $message);
+        CFZT_Logger::auth_attempt($identifier, $success, 'saml', $message);
     }
 }

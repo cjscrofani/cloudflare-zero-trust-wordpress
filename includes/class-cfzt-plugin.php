@@ -11,13 +11,38 @@ if (!defined('ABSPATH')) {
 }
 
 class CFZT_Plugin {
-    
+
+    // Authentication method constants
+    const AUTH_METHOD_OIDC = 'oauth2';
+    const AUTH_METHOD_SAML = 'saml';
+
+    // Application type constants
+    const APP_TYPE_SAAS = 'saas';
+    const APP_TYPE_SELF_HOSTED = 'self-hosted';
+
+    // Login mode constants
+    const LOGIN_MODE_PRIMARY = 'primary';
+    const LOGIN_MODE_SECONDARY = 'secondary';
+
+    // Boolean string constants
+    const OPTION_YES = 'yes';
+    const OPTION_NO = 'no';
+
+    // Default role
+    const DEFAULT_ROLE = 'subscriber';
+
     /**
      * Plugin instance
      * @var CFZT_Plugin|null
      */
     private static $instance = null;
-    
+
+    /**
+     * Cached plugin options
+     * @var array|null
+     */
+    private static $cached_options = null;
+
     /**
      * Plugin components
      */
@@ -51,11 +76,13 @@ class CFZT_Plugin {
      * Load required files
      */
     private function load_dependencies() {
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-logger.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-security.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-user-helper.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-auth.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-admin.php';
-        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-security.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-login-ui.php';
-        
+
         // Load GitHub updater if it exists
         $updater_file = CFZT_PLUGIN_DIR . 'includes/class-github-updater.php';
         if (file_exists($updater_file)) {
@@ -118,15 +145,15 @@ class CFZT_Plugin {
     public static function activate() {
         // Create necessary database tables or options
         add_option('cfzt_settings', array(
-            'auth_method' => 'oauth2',
-            'app_type' => 'saas',
+            'auth_method' => self::AUTH_METHOD_OIDC,
+            'app_type' => self::APP_TYPE_SAAS,
             'team_domain' => '',
             'client_id' => '',
             'client_secret' => '',
-            'login_mode' => 'secondary',
-            'auto_create_users' => 'yes',
-            'default_role' => 'subscriber',
-            'enable_logging' => 'no'
+            'login_mode' => self::LOGIN_MODE_SECONDARY,
+            'auto_create_users' => self::OPTION_YES,
+            'default_role' => self::DEFAULT_ROLE,
+            'enable_logging' => self::OPTION_NO
         ));
         
         // Create directories if needed
@@ -163,27 +190,39 @@ class CFZT_Plugin {
     
     /**
      * Get plugin option
-     * 
+     *
      * @param string $option Option name
      * @param mixed $default Default value
      * @return mixed Option value
      */
     public static function get_option($option = null, $default = null) {
-        $options = get_option('cfzt_settings', array());
-        
-        // Override with constants if defined
-        if (defined('CFZT_CLIENT_ID') && CFZT_CLIENT_ID) {
-            $options['client_id'] = CFZT_CLIENT_ID;
+        // Use cached options if available
+        if (self::$cached_options === null) {
+            self::$cached_options = get_option('cfzt_settings', array());
+
+            // Override with constants if defined
+            if (defined('CFZT_CLIENT_ID') && CFZT_CLIENT_ID) {
+                self::$cached_options['client_id'] = CFZT_CLIENT_ID;
+            }
+            if (defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET) {
+                self::$cached_options['client_secret'] = CFZT_CLIENT_SECRET;
+                self::$cached_options['client_secret_is_constant'] = true;
+            }
         }
-        if (defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET) {
-            $options['client_secret'] = CFZT_CLIENT_SECRET;
-            $options['client_secret_is_constant'] = true;
-        }
-        
+
         if (null === $option) {
-            return $options;
+            return self::$cached_options;
         }
-        
-        return isset($options[$option]) ? $options[$option] : $default;
+
+        return isset(self::$cached_options[$option]) ? self::$cached_options[$option] : $default;
+    }
+
+    /**
+     * Clear the options cache
+     *
+     * Call this after updating options to ensure fresh data is retrieved
+     */
+    public static function clear_options_cache(): void {
+        self::$cached_options = null;
     }
 }
