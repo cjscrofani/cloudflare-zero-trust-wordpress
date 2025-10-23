@@ -926,6 +926,24 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                     </div>
 
                     <div class="cfzt-form-group">
+                        <label for="cfzt_redirect_after_login">
+                            Redirect After Login
+                            <span class="cfzt-help-icon" data-tooltip="Custom URL to redirect users after successful login. Leave empty to use WordPress default (wp-admin for admins, home for others).">?</span>
+                        </label>
+                        <input type="url" id="cfzt_redirect_after_login" name="cfzt_settings[redirect_after_login]" value="<?php echo esc_attr($options['redirect_after_login'] ?? ''); ?>" class="large-text" placeholder="<?php echo esc_attr(home_url()); ?>">
+                        <p class="description"><?php _e('Leave empty to use WordPress default redirect behavior.', 'cf-zero-trust'); ?></p>
+                    </div>
+
+                    <div class="cfzt-form-group">
+                        <label for="cfzt_redirect_after_logout">
+                            Redirect After Logout
+                            <span class="cfzt-help-icon" data-tooltip="Custom URL to redirect users after logout. Leave empty to redirect to home page.">?</span>
+                        </label>
+                        <input type="url" id="cfzt_redirect_after_logout" name="cfzt_settings[redirect_after_logout]" value="<?php echo esc_attr($options['redirect_after_logout'] ?? ''); ?>" class="large-text" placeholder="<?php echo esc_attr(home_url()); ?>">
+                        <p class="description"><?php _e('Leave empty to redirect to home page.', 'cf-zero-trust'); ?></p>
+                    </div>
+
+                    <div class="cfzt-form-group">
                         <label>
                             Role Mapping (Cloudflare Groups → WordPress Roles)
                             <span class="cfzt-help-icon" data-tooltip="Map Cloudflare Access groups to WordPress roles. When a user logs in, their WordPress role will be automatically set based on their Cloudflare group membership.">?</span>

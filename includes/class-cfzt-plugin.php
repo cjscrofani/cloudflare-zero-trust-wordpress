@@ -93,6 +93,7 @@ class CFZT_Plugin {
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-logger.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-security.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-user-helper.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-backup-codes.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-auth.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-admin.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-login-ui.php';
@@ -112,7 +113,8 @@ class CFZT_Plugin {
         $this->auth = new CFZT_Auth($this->security);
         $this->admin = new CFZT_Admin($this->security);
         $this->login_ui = new CFZT_Login_UI();
-        
+        $this->backup_codes = new CFZT_Backup_Codes();
+
         // Initialize GitHub updater
         if (class_exists('CFZT_GitHub_Updater')) {
             $this->github_updater = new CFZT_GitHub_Updater(
