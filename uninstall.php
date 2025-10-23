@@ -14,7 +14,10 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 if (!is_multisite() || is_super_admin()) {
     // Remove plugin options
     delete_option('cfzt_settings');
-    
+    delete_option('cfzt_activated_time');
+    delete_option('cfzt_version');
+    delete_option('cfzt_activation_notice_dismissed');
+
     // Remove user meta for all users
     global $wpdb;
     

@@ -222,6 +222,9 @@ class CFZT_Plugin {
         add_option('cfzt_activated_time', current_time('timestamp'));
         update_option('cfzt_version', CFZT_PLUGIN_VERSION);
 
+        // Set activation notice flag
+        set_transient('cfzt_activation_notice', true, 60 * 60 * 24); // Show for 24 hours
+
         // Flush rewrite rules for SAML endpoints
         flush_rewrite_rules();
 

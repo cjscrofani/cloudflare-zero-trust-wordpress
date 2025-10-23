@@ -35,6 +35,8 @@ class CFZT_Admin {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_notices', array($this, 'admin_notices'));
+        add_action('admin_notices', array($this, 'activation_notice'));
+        add_action('wp_ajax_cfzt_dismiss_activation_notice', array($this, 'dismiss_activation_notice'));
         add_filter('pre_update_option_cfzt_settings', array($this, 'protect_constants'), 10, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_cfzt_check_for_updates', array($this, 'ajax_check_for_updates'));
@@ -150,7 +152,7 @@ class CFZT_Admin {
         CFZT_Plugin::clear_options_cache();
 
         $sanitized = array();
-        
+
         // General settings
         $sanitized['auth_method'] = sanitize_text_field($input['auth_method']);
         $sanitized['team_domain'] = sanitize_text_field($input['team_domain']);
@@ -158,25 +160,35 @@ class CFZT_Admin {
         $sanitized['auto_create_users'] = sanitize_text_field($input['auto_create_users']);
         $sanitized['default_role'] = sanitize_text_field($input['default_role']);
         $sanitized['enable_logging'] = sanitize_text_field($input['enable_logging']);
-        
+
         // OIDC settings
         $sanitized['app_type'] = sanitize_text_field($input['app_type']);
         $sanitized['client_id'] = sanitize_text_field($input['client_id']);
-        
+
         // Encrypt sensitive data
         $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($input['client_secret']));
-        
+
         // SAML settings
         $sanitized['saml_sso_target_url'] = sanitize_text_field($input['saml_sso_target_url']);
         $sanitized['saml_sp_entity_id'] = sanitize_text_field($input['saml_sp_entity_id']);
         $sanitized['saml_x509_cert'] = sanitize_textarea_field($input['saml_x509_cert']);
-        
+
         // Clear rewrite rules when auth method changes
         $current_options = get_option('cfzt_settings', array());
         if (isset($current_options['auth_method']) && $current_options['auth_method'] !== $sanitized['auth_method']) {
             set_transient('cfzt_flush_rewrite_rules', true);
         }
-        
+
+        // Dismiss activation notice when plugin is configured
+        $is_configured = !empty($sanitized['team_domain']) && !empty($sanitized['client_id']) && !empty($sanitized['client_secret']);
+        if ($is_configured) {
+            update_option('cfzt_activation_notice_dismissed', true);
+            delete_transient('cfzt_activation_notice');
+
+            // Set success message with next steps
+            set_transient('cfzt_settings_saved_success', true, 60);
+        }
+
         return $sanitized;
     }
     
@@ -464,9 +476,33 @@ class CFZT_Admin {
             flush_rewrite_rules();
             delete_transient('cfzt_flush_rewrite_rules');
         }
-        
+
         $screen = get_current_screen();
         if ($screen && $screen->id === 'settings_page_cf-zero-trust') {
+            // Show success message with next steps
+            if (get_transient('cfzt_settings_saved_success')) {
+                delete_transient('cfzt_settings_saved_success');
+                $login_url = wp_login_url();
+                ?>
+                <div class="notice notice-success is-dismissible">
+                    <h3 style="margin: 10px 0;"><?php _e('Configuration Saved Successfully!', 'cf-zero-trust'); ?></h3>
+                    <p><?php _e('Your Cloudflare Zero Trust settings have been saved. Here are your next steps:', 'cf-zero-trust'); ?></p>
+                    <ol style="margin-left: 20px;">
+                        <li><strong><?php _e('Test Your Connection:', 'cf-zero-trust'); ?></strong> <?php _e('Use the test button below to verify your configuration', 'cf-zero-trust'); ?></li>
+                        <li><strong><?php _e('Try Logging In:', 'cf-zero-trust'); ?></strong> <a href="<?php echo esc_url($login_url); ?>" target="_blank"><?php _e('Visit your login page', 'cf-zero-trust'); ?></a></li>
+                        <li><strong><?php _e('Monitor Activity:', 'cf-zero-trust'); ?></strong> <?php _e('Check authentication logs if logging is enabled', 'cf-zero-trust'); ?></li>
+                    </ol>
+                    <p style="margin-top: 15px;">
+                        <a href="<?php echo esc_url($login_url); ?>" class="button button-primary" target="_blank">
+                            <span class="dashicons dashicons-external" style="margin-top: 3px;"></span> <?php _e('View Login Page', 'cf-zero-trust'); ?>
+                        </a>
+                        <button type="button" id="cfzt-test-connection-btn" class="button button-secondary">
+                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> <?php _e('Test Connection', 'cf-zero-trust'); ?>
+                        </button>
+                    </p>
+                </div>
+                <?php
+            }
             if (!$this->security->is_encryption_available()) {
                 ?>
                 <div class="notice notice-warning">
@@ -474,7 +510,7 @@ class CFZT_Admin {
                 </div>
                 <?php
             }
-            
+
             // Check SAML requirements
             $options = CFZT_Plugin::get_option();
             if (isset($options['auth_method']) && $options['auth_method'] === 'saml') {
@@ -487,6 +523,117 @@ class CFZT_Admin {
                 }
             }
         }
+    }
+
+    /**
+     * Show activation notice to guide users to settings
+     */
+    public function activation_notice() {
+        // Only show to admins
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Check if notice was dismissed
+        if (get_option('cfzt_activation_notice_dismissed')) {
+            return;
+        }
+
+        // Check if transient exists (recently activated)
+        if (!get_transient('cfzt_activation_notice')) {
+            return;
+        }
+
+        // Check if plugin is already configured
+        $options = CFZT_Plugin::get_option();
+        $is_configured = !empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret']);
+
+        if ($is_configured) {
+            // Plugin is configured, dismiss the notice
+            delete_transient('cfzt_activation_notice');
+            return;
+        }
+
+        // Don't show on our settings page
+        $screen = get_current_screen();
+        if ($screen && $screen->id === 'settings_page_cf-zero-trust') {
+            return;
+        }
+
+        ?>
+        <div class="notice notice-success is-dismissible cfzt-activation-notice" data-notice="cfzt-activation">
+            <div style="display: flex; align-items: center; padding: 10px 0;">
+                <div style="flex: 1;">
+                    <h3 style="margin: 0 0 10px 0;">
+                        <?php _e('Welcome to Cloudflare Zero Trust Login!', 'cf-zero-trust'); ?>
+                    </h3>
+                    <p style="margin: 0 0 10px 0;">
+                        <?php _e('Thank you for installing Cloudflare Zero Trust Login for WordPress. To get started, you\'ll need to configure your Cloudflare credentials.', 'cf-zero-trust'); ?>
+                    </p>
+                    <p style="margin: 0;">
+                        <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
+                            <?php _e('Configure Plugin Now', 'cf-zero-trust'); ?>
+                        </a>
+                        <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>#readme" class="button button-secondary" target="_blank">
+                            <?php _e('View Documentation', 'cf-zero-trust'); ?>
+                        </a>
+                    </p>
+                </div>
+                <div style="margin-left: 20px;">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="#f38020" opacity="0.2"/>
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" fill="#f38020"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            // Handle dismiss button
+            $('.cfzt-activation-notice').on('click', '.notice-dismiss', function() {
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'cfzt_dismiss_activation_notice',
+                        nonce: '<?php echo wp_create_nonce('cfzt_dismiss_notice'); ?>'
+                    }
+                });
+            });
+        });
+        </script>
+
+        <style>
+        .cfzt-activation-notice {
+            border-left-color: #f38020 !important;
+        }
+        .cfzt-activation-notice h3 {
+            color: #1d2327;
+        }
+        </style>
+        <?php
+    }
+
+    /**
+     * AJAX handler to dismiss activation notice
+     */
+    public function dismiss_activation_notice() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_notice')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to perform this action.', 'cf-zero-trust'));
+        }
+
+        // Dismiss the notice
+        update_option('cfzt_activation_notice_dismissed', true);
+        delete_transient('cfzt_activation_notice');
+
+        wp_send_json_success();
     }
     
     /**
