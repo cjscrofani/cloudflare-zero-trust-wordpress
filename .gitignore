@@ -99,6 +99,9 @@ error_log
 # Documentation builds
 /docs/_build/
 
+# Blog post HTML (for WordPress posts)
+blog.html
+
 # Optional: Keep or remove based on your workflow
 # package-lock.json
 # yarn.lock
