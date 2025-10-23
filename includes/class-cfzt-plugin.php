@@ -225,16 +225,20 @@ class CFZT_Plugin {
         // Flush rewrite rules for SAML endpoints
         flush_rewrite_rules();
 
-        // Log activation
-        CFZT_Logger::info('Plugin activated', array('version' => CFZT_PLUGIN_VERSION));
+        // Log activation (if logger is available)
+        if (class_exists('CFZT_Logger')) {
+            CFZT_Logger::info('Plugin activated', array('version' => CFZT_PLUGIN_VERSION));
+        }
     }
     
     /**
      * Plugin deactivation
      */
     public static function deactivate() {
-        // Log deactivation
-        CFZT_Logger::info('Plugin deactivated');
+        // Log deactivation (if logger is available)
+        if (class_exists('CFZT_Logger')) {
+            CFZT_Logger::info('Plugin deactivated');
+        }
 
         // Clean up transients
         global $wpdb;
