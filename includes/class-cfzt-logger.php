@@ -47,7 +47,70 @@ class CFZT_Logger {
             $log_message .= ' | Context: ' . json_encode($context);
         }
 
+        // Log to error_log
         error_log($log_message);
+
+        // Log to database
+        self::log_to_database($level, $message, $context);
+    }
+
+    /**
+     * Save log entry to database
+     *
+     * @param string $level Log level
+     * @param string $message Log message
+     * @param array $context Additional context data
+     */
+    private static function log_to_database(string $level, string $message, array $context = []): void {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'cfzt_logs';
+
+        // Get IP address
+        $ip_address = '';
+        if (isset($_SERVER['REMOTE_ADDR'])) {
+            $ip_address = sanitize_text_field($_SERVER['REMOTE_ADDR']);
+        }
+
+        // Get user agent
+        $user_agent = '';
+        if (isset($_SERVER['HTTP_USER_AGENT'])) {
+            $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT']);
+        }
+
+        // Extract specific context fields
+        $identifier = isset($context['identifier']) ? $context['identifier'] : '';
+        $auth_method = isset($context['auth_method']) ? $context['auth_method'] : '';
+        $success = isset($context['success']) ? (int)$context['success'] : 0;
+
+        // Insert log entry
+        $wpdb->insert(
+            $table_name,
+            array(
+                'log_time' => current_time('mysql'),
+                'log_level' => $level,
+                'message' => $message,
+                'identifier' => $identifier,
+                'auth_method' => $auth_method,
+                'success' => $success,
+                'ip_address' => $ip_address,
+                'user_agent' => $user_agent,
+                'context' => json_encode($context)
+            ),
+            array('%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s')
+        );
+
+        // Cleanup old logs (keep last 1000 entries)
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        if ($count > 1000) {
+            $wpdb->query(
+                "DELETE FROM $table_name
+                WHERE id NOT IN (
+                    SELECT id FROM (
+                        SELECT id FROM $table_name ORDER BY log_time DESC LIMIT 1000
+                    ) AS tmp
+                )"
+            );
+        }
     }
 
     /**
