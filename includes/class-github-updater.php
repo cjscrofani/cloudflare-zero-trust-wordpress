@@ -17,31 +17,36 @@ if (!defined('ABSPATH')) {
 if (!class_exists('CFZT_GitHub_Updater')) {
     
     class CFZT_GitHub_Updater {
-        
+
+        /**
+         * Cache duration in hours
+         */
+        const CACHE_DURATION_HOURS = 12;
+
         /**
          * Plugin file path
          * @var string
          */
         private $plugin_file;
-        
+
         /**
          * GitHub username
          * @var string
          */
         private $github_username;
-        
+
         /**
          * GitHub repository name
          * @var string
          */
         private $github_repository;
-        
+
         /**
          * Plugin data cache
          * @var array|null
          */
         private $plugin_data;
-        
+
         /**
          * GitHub API response cache
          * @var array|null
@@ -115,17 +120,31 @@ if (!class_exists('CFZT_GitHub_Updater')) {
                 if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
                     $body = wp_remote_retrieve_body($response);
                     $release = json_decode($body, true);
-                    
+
                     if (json_last_error() === JSON_ERROR_NONE && isset($release['tag_name'])) {
                         $this->github_response = $release;
-                        // Cache for 6 hours
-                        set_transient($transient_name, $release, 6 * HOUR_IN_SECONDS);
+                        // Cache for configured duration
+                        set_transient($transient_name, $release, self::CACHE_DURATION_HOURS * HOUR_IN_SECONDS);
+                        CFZT_Logger::debug('GitHub release cached', array(
+                            'version' => $release['tag_name'],
+                            'cache_hours' => self::CACHE_DURATION_HOURS
+                        ));
                     }
                 } else {
                     // If we get a 404, there might not be any releases yet
-                    if (wp_remote_retrieve_response_code($response) === 404) {
+                    $response_code = wp_remote_retrieve_response_code($response);
+                    if ($response_code === 404) {
                         // Cache the "no releases" state for 1 hour
                         set_transient($transient_name, array('no_releases' => true), HOUR_IN_SECONDS);
+                        CFZT_Logger::debug('No GitHub releases found', array('repo' => $this->github_username . '/' . $this->github_repository));
+                    } elseif (is_wp_error($response)) {
+                        CFZT_Logger::warning('GitHub API request failed', array(
+                            'error' => $response->get_error_message()
+                        ));
+                    } else {
+                        CFZT_Logger::warning('GitHub API returned non-200 status', array(
+                            'status_code' => $response_code
+                        ));
                     }
                 }
             }

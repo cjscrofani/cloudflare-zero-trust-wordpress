@@ -129,31 +129,35 @@ class CFZT_Auth {
         
         // Rate limiting
         if (!$this->security->check_rate_limit()) {
-            wp_die('Too many authentication attempts. Please try again in 5 minutes.', 'Rate Limit Exceeded', array('response' => 429));
+            wp_die(
+                __('Too many authentication attempts. Please try again in 5 minutes.', 'cf-zero-trust'),
+                __('Rate Limit Exceeded', 'cf-zero-trust'),
+                array('response' => 429)
+            );
         }
-        
+
         // Verify state
         $state = sanitize_text_field($_GET['state']);
         if (!get_transient('cfzt_auth_state_' . $state)) {
             $this->log_authentication('unknown', false, 'Invalid state parameter');
-            wp_die('Invalid state parameter');
+            wp_die(__('Invalid state parameter', 'cf-zero-trust'));
         }
         delete_transient('cfzt_auth_state_' . $state);
-        
+
         // Exchange code for token
         $token_data = $this->exchange_code_for_token(sanitize_text_field($_GET['code']));
-        
+
         if (!$token_data || !isset($token_data['access_token'])) {
             $this->log_authentication('unknown', false, 'Token exchange failed');
-            wp_die('Failed to exchange authorization code. Please check your Cloudflare Zero Trust configuration.');
+            wp_die(__('Failed to exchange authorization code. Please check your Cloudflare Zero Trust configuration.', 'cf-zero-trust'));
         }
-        
+
         // Get user info
         $user_info = $this->get_user_info($token_data['access_token']);
-        
+
         if (!$user_info) {
             $this->log_authentication('unknown', false, 'Failed to retrieve user info');
-            wp_die('Failed to retrieve user information. Check your error logs for details.');
+            wp_die(__('Failed to retrieve user information. Check your error logs for details.', 'cf-zero-trust'));
         }
         
         // Authenticate user
@@ -279,7 +283,7 @@ class CFZT_Auth {
         
         if (empty($email)) {
             $this->log_authentication('unknown', false, 'No email provided');
-            wp_die('No email address provided by Cloudflare Zero Trust.');
+            wp_die(__('No email address provided by Cloudflare Zero Trust.', 'cf-zero-trust'));
         }
         
         // Check if user exists
@@ -312,7 +316,7 @@ class CFZT_Auth {
             exit;
         } else {
             $this->log_authentication($email, false, 'User creation disabled or failed');
-            wp_die('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.');
+            wp_die(__('User authentication failed. Auto-creation may be disabled or you may not have permission to access this site.', 'cf-zero-trust'));
         }
     }
     
