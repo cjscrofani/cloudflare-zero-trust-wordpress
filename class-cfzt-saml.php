@@ -9,6 +9,23 @@
 /**
  * SAML Authentication handler for Cloudflare Zero Trust
  *
+ * ⚠️ SECURITY WARNING - READ BEFORE USE ⚠️
+ *
+ * This SAML implementation does NOT perform proper signature validation.
+ * It should NOT be used in production environments without additional security measures.
+ *
+ * KNOWN LIMITATIONS:
+ * - SAML response signatures are not cryptographically verified
+ * - Vulnerable to response tampering and replay attacks
+ * - An attacker could potentially forge SAML responses
+ *
+ * RECOMMENDATIONS:
+ * 1. Use OIDC authentication instead (fully implemented and secure)
+ * 2. If SAML is required, use a production-ready SAML library
+ * 3. Implement additional security controls (IP restrictions, monitoring, etc.)
+ *
+ * See validate_signature() method for detailed security information.
+ *
  * @package CloudflareZeroTrustLogin
  */
 
@@ -291,32 +308,69 @@ class CFZT_SAML {
     
     /**
      * Validate XML signature
-     * 
+     *
      * @param DOMDocument $xml XML document
      * @param string $x509_cert X509 certificate
      * @return bool True if valid
+     *
+     * ⚠️ SECURITY WARNING: This method currently does NOT perform proper signature validation.
+     *
+     * CURRENT BEHAVIOR:
+     * - Always returns true (allows all responses, signed or unsigned)
+     * - Does not verify the cryptographic signature against the X.509 certificate
+     * - Does not validate certificate chain or expiration
+     *
+     * SECURITY IMPLICATIONS:
+     * - Vulnerable to SAML response tampering and replay attacks
+     * - An attacker could forge SAML responses to gain unauthorized access
+     * - Should NOT be used in production environments without additional security measures
+     *
+     * RECOMMENDED SOLUTIONS:
+     * 1. Use a production-ready SAML library:
+     *    - SimpleSAMLphp (https://simplesamlphp.org/)
+     *    - LightSAML (https://github.com/lightsaml/lightsaml)
+     *    - OneLogin PHP SAML (https://github.com/onelogin/php-saml)
+     *
+     * 2. If implementing manually, you must:
+     *    - Canonicalize the signed XML element (C14N)
+     *    - Extract and decode the signature value
+     *    - Verify signature using openssl_verify() with the X.509 certificate
+     *    - Validate certificate chain and expiration
+     *    - Check signature algorithm security (reject weak algorithms)
+     *    - Validate assertion timestamps and conditions
+     *
+     * 3. Additional hardening:
+     *    - Restrict access by IP or require additional authentication
+     *    - Use short-lived SAML assertions
+     *    - Implement assertion replay prevention
+     *    - Monitor authentication logs for anomalies
+     *
+     * @todo Implement proper SAML signature validation before production use
      */
     private function validate_signature($xml, $x509_cert) {
-        // This is a simplified signature validation
-        // In production, you should use a proper SAML library like LightSAML or SimpleSAMLphp
-        
-        // For now, we'll do basic validation
+        // ⚠️ CRITICAL: This is a placeholder implementation that does NOT validate signatures
+        // See method documentation above for security implications and recommendations
+
         $xpath = new DOMXPath($xml);
         $xpath->registerNamespace('ds', 'http://www.w3.org/2000/09/xmldsig#');
-        
+
         $signature_node = $xpath->query('//ds:Signature')->item(0);
         if (!$signature_node) {
-            // No signature present
-            return true; // Allow unsigned for now
+            // No signature present - allowing unsigned responses is insecure
+            error_log('[CF Zero Trust SAML] WARNING: SAML response has no signature - security risk!');
+            return true; // ⚠️ INSECURE: Should return false in production
         }
-        
-        // TODO: Implement proper signature validation
-        // This would involve:
-        // 1. Canonicalizing the signed element
-        // 2. Verifying the signature value against the certificate
-        // 3. Checking certificate validity
-        
-        return true; // Placeholder - implement proper validation
+
+        // ⚠️ CRITICAL: Signature validation not implemented
+        error_log('[CF Zero Trust SAML] WARNING: SAML signature validation is not implemented - security risk!');
+
+        // TODO: Implement proper signature validation:
+        // 1. Canonicalize the signed element
+        // 2. Verify the signature value against the certificate
+        // 3. Check certificate validity and chain
+        // 4. Validate signature algorithm
+
+        return true; // ⚠️ INSECURE: Always returns true - implement proper validation
     }
     
     /**
@@ -514,17 +568,18 @@ class CFZT_SAML {
         
         if (isset($options['enable_logging']) && $options['enable_logging'] === 'yes') {
             $status = $success ? 'SUCCESS' : 'FAILED';
+            $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
             $log_message = sprintf(
                 '[CF Zero Trust SAML] Authentication %s for: %s from IP: %s',
                 $status,
                 $identifier,
-                $_SERVER['REMOTE_ADDR']
+                $remote_ip
             );
-            
+
             if (!empty($message)) {
                 $log_message .= ' - ' . $message;
             }
-            
+
             error_log($log_message);
         }
         

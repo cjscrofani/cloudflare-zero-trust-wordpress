@@ -470,17 +470,18 @@ class CFZT_Auth {
         
         if (isset($options['enable_logging']) && $options['enable_logging'] === 'yes') {
             $status = $success ? 'SUCCESS' : 'FAILED';
+            $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
             $log_message = sprintf(
                 '[CF Zero Trust] Authentication %s for: %s from IP: %s',
                 $status,
                 $identifier,
-                $_SERVER['REMOTE_ADDR']
+                $remote_ip
             );
-            
+
             if (!empty($message)) {
                 $log_message .= ' - ' . $message;
             }
-            
+
             error_log($log_message);
         }
         

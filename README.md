@@ -2,12 +2,25 @@
 
 A secure WordPress authentication plugin that integrates Cloudflare Zero Trust OIDC (OpenID Connect) into your WordPress login system. Supports both SaaS and Self-hosted applications with enterprise-grade security features.
 
+## ⚠️ IMPORTANT SECURITY NOTICE
+
+**SAML Authentication Limitation:**
+This plugin includes experimental SAML support that **does NOT perform proper cryptographic signature validation**. The SAML implementation should **NOT be used in production environments** as it is vulnerable to response tampering and replay attacks.
+
+**Recommendations:**
+- ✅ **Use OIDC authentication** (fully implemented and secure)
+- ❌ **Do not use SAML** in production without additional security measures
+- 📖 See `class-cfzt-saml.php` for detailed security documentation
+
+If SAML is absolutely required, consider using a production-ready SAML library like SimpleSAMLphp, LightSAML, or OneLogin PHP SAML.
+
 ## 🚀 Features
 
 ### Authentication
-- **OIDC Integration**: Seamless authentication using Cloudflare Zero Trust OpenID Connect
+- **OIDC Integration**: Seamless authentication using Cloudflare Zero Trust OpenID Connect ✅ **Secure & Production-Ready**
+- **SAML Support**: Experimental SAML authentication ⚠️ **Not production-ready** (see security notice above)
 - **Dual Application Support**: Works with both SaaS and Self-hosted Cloudflare applications
-- **Flexible Login Modes**: 
+- **Flexible Login Modes**:
   - Secondary mode: Traditional WordPress login alongside Cloudflare login
   - Primary mode: Cloudflare-only authentication (disables WordPress login)
 
@@ -36,6 +49,7 @@ A secure WordPress authentication plugin that integrates Cloudflare Zero Trust O
 - A Cloudflare account with Zero Trust enabled
 - SSL/HTTPS enabled on your WordPress site
 - OpenSSL PHP extension (recommended for encryption)
+- PHP DOM extension (required only if using SAML - not recommended for production)
 
 ## 🔧 Installation
 
@@ -124,11 +138,14 @@ CFZT_CLIENT_SECRET=your-client-secret-here
 
 ## 🔐 Security Considerations
 
-- Always use HTTPS for your WordPress site
-- Keep your WordPress salts properly configured in `wp-config.php`
-- Use environment variables for credentials when possible
-- Regularly update the plugin for security patches
-- Monitor authentication logs for suspicious activity
+- **Use OIDC, not SAML**: The OIDC implementation is production-ready and secure. SAML is experimental only.
+- **Always use HTTPS** for your WordPress site
+- **Keep WordPress salts configured** properly in `wp-config.php` (affects encryption)
+- **Use environment variables** for credentials when possible (see Step 3 in Configuration)
+- **Regularly update the plugin** for security patches via the built-in GitHub updater
+- **Monitor authentication logs** for suspicious activity (enable in settings)
+- **Implement IP restrictions** in Cloudflare Zero Trust policies for additional security
+- **Use strong authentication** in your Cloudflare identity provider (MFA recommended)
 
 ## 🛠️ Development
 

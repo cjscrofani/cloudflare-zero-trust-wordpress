@@ -19,7 +19,7 @@ define('CFZT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CFZT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CFZT_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('CFZT_PLUGIN_FILE', __FILE__);
-define('CFZT_PLUGIN_VERSION', '1.0.0');
+define('CFZT_PLUGIN_VERSION', '1.0.2');
 
 // GitHub repository details
 define('CFZT_GITHUB_USERNAME', 'cjscrofani');
