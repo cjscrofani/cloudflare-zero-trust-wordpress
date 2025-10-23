@@ -141,11 +141,14 @@ class CFZT_Admin {
     
     /**
      * Sanitize settings
-     * 
+     *
      * @param array $input Raw input
      * @return array Sanitized settings
      */
     public function sanitize_settings($input) {
+        // Clear the options cache since we're updating settings
+        CFZT_Plugin::clear_options_cache();
+
         $sanitized = array();
         
         // General settings
