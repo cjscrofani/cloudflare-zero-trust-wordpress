@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-10-23
+
 ### Added
 - Centralized logging system with CFZT_Logger class
 - User helper class for consolidated user management
@@ -15,24 +17,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options caching to reduce database queries
 - PHP and WordPress version checking on activation
 - Activation timestamp tracking
-- Improved GitHub update checker with configurable cache duration
+- Improved GitHub update checker with configurable cache duration (6→12 hours)
+- Comprehensive CHANGELOG.md file
 
 ### Changed
 - Improved code organization by extracting duplicate user creation logic
 - Enhanced activation/deactivation hooks with proper cleanup
-- Increased GitHub update cache from 6 to 12 hours
 - Better error handling with structured logging context
+- Moved SAML class file to includes/ directory for consistency
+- Enhanced inline documentation with PHPDoc examples
 
 ### Fixed
-- Version mismatch between plugin header and constant
+- **CRITICAL**: Fatal error on plugin activation (CFZT_Logger not found)
+- **CRITICAL**: SAML file path mismatch causing load failures
+- Version mismatch between plugin header and constant (1.0.0→1.0.2→1.0.3)
 - Encryption nonce now uses truly random values instead of wp_create_nonce()
 - All $_SERVER superglobal access now properly sanitized
+- Uninstall cleanup now removes all plugin data including user meta
 - Internationalization completed for all user-facing error messages
 
 ### Security
 - **CRITICAL**: Documented SAML signature validation limitation (NOT production-ready)
-- Added security warnings to SAML implementation
+- Added security warnings to SAML implementation throughout codebase and README
 - Improved sanitization across all components
+- Enhanced rate limiting and session protection
 
 ## [1.0.2] - 2025-10-23
 
