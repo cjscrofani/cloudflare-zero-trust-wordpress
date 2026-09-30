@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-30
+
+### Removed
+- **BREAKING: SAML authentication has been removed.** The implementation never performed
+  cryptographic signature validation, leaving it open to response tampering and replay, and
+  it provided no capability the OIDC path lacks — both terminate at the same Cloudflare
+  Access application. Rather than ship a known-vulnerable authentication path, it is gone:
+  `class-cfzt-saml.php`, its settings, its rewrite endpoints and the PHP DOM requirement.
+- The wizard's "Choose Method" step, which now had only one option, along with the
+  SAML fields, warnings and health checks throughout the admin UI.
+
+### Migration
+- Sites configured for SAML are switched to OIDC automatically on upgrade.
+- **Sites using SAML in "Cloudflare only" login mode are moved back to "Cloudflare alongside
+  WordPress login."** Without this they would have had no working way in: WordPress login was
+  disabled and the only other path has been removed.
+- The stored SAML settings are discarded, and a persistent admin notice explains what changed
+  and links to OIDC setup. Migrations run from `admin_init`, because WordPress does not fire
+  activation hooks on plugin update.
+
+### Added
+- **Automatic Cloudflare provisioning.** The setup wizard can now create the Zero Trust
+  Access application for you. Paste a scoped API token once and the plugin discovers your
+  account, reads your team domain, creates a SaaS OIDC application pointed at this site's
+  callback URL, attaches an Access policy, and saves the credentials. The manual
+  instructions remain available as a fallback.
+- **Pre-filled API token link.** The wizard links to Cloudflare with the required
+  permissions already selected, so the token can be created in a few clicks.
+- **`CFZT_Cloudflare_API`** — a minimal Cloudflare API v4 client covering the endpoints
+  needed for provisioning.
+- **`CFZT_Provisioner`** — provisioning logic that accepts any bearer token, so the
+  credential source can change (for example to OAuth) without rewriting it.
+- **`CFZT_Setup`** — admin-AJAX endpoints for the guided setup flow.
+- **`CFZT_Plugin::get_redirect_uri()`** — single source of truth for the OIDC callback URL,
+  filterable via `cfzt_redirect_uri`.
+- New filters: `cfzt_provision_app_body` and `cfzt_token_permission_keys`.
+
+### Security
+- The Cloudflare API token is used only for the duration of setup and is **never written
+  to the database**. The provisioned client secret is saved server-side and is not sent
+  back to the browser.
+- Provisioning warns when no identity provider is configured, when `wp-config.php`
+  constants override the saved credentials, when OpenSSL is unavailable, and when the site
+  is not served over HTTPS.
+
+### Fixed
+- Settings saves no longer discard the provisioning provenance keys, which were dropped
+  because `sanitize_settings()` rebuilds the options array from scratch.
+- Declared the `$backup_codes` and `$setup` properties on `CFZT_Plugin` to avoid PHP 8.2
+  dynamic property deprecation notices.
+- The OIDC callback URL is no longer duplicated across `class-cfzt-auth.php` and the admin
+  template, so the URL registered with Cloudflare cannot drift from the one sent during
+  authentication.
+
 ## [1.0.4] - 2025-10-23
 
 ### Added

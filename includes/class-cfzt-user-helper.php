@@ -2,7 +2,7 @@
 /**
  * User management helper for Cloudflare Zero Trust
  *
- * Shared user creation and management functionality used by both OIDC and SAML authentication.
+ * Shared user creation and management functionality used by OIDC authentication.
  *
  * @package CloudflareZeroTrustLogin
  */
@@ -19,7 +19,7 @@ class CFZT_User_Helper {
      *
      * @param string $email User email address
      * @param array $user_info User information from authentication provider
-     * @param string $auth_method Authentication method used ('oidc' or 'saml')
+     * @param string $auth_method Authentication method used (e.g. 'oidc')
      * @return WP_User|false User object on success, false on failure
      */
     public static function create_user(string $email, array $user_info, string $auth_method = 'oidc') {

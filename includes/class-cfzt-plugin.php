@@ -28,7 +28,6 @@ class CFZT_Plugin {
 
     // Authentication method constants
     const AUTH_METHOD_OIDC = 'oauth2';
-    const AUTH_METHOD_SAML = 'saml';
 
     // Application type constants
     const APP_TYPE_SAAS = 'saas';
@@ -65,6 +64,8 @@ class CFZT_Plugin {
     private $security;
     private $login_ui;
     private $github_updater;
+    private $backup_codes;
+    private $setup;
     
     /**
      * Get plugin instance
@@ -95,6 +96,9 @@ class CFZT_Plugin {
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-user-helper.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-backup-codes.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-auth.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-cloudflare-api.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-provisioner.php';
+        require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-setup.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-admin.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-login-ui.php';
 
@@ -114,6 +118,7 @@ class CFZT_Plugin {
         $this->admin = new CFZT_Admin($this->security);
         $this->login_ui = new CFZT_Login_UI();
         $this->backup_codes = new CFZT_Backup_Codes();
+        $this->setup = new CFZT_Setup($this->security);
 
         // Initialize GitHub updater
         if (class_exists('CFZT_GitHub_Updater')) {
@@ -131,9 +136,83 @@ class CFZT_Plugin {
     private function init_hooks() {
         // Text domain
         add_action('init', array($this, 'load_textdomain'));
-        
+
+        // Run data migrations after an update (activation hooks do not fire on update)
+        add_action('admin_init', array($this, 'maybe_upgrade'));
+
         // Settings link on plugins page
         add_filter('plugin_action_links_' . CFZT_PLUGIN_BASENAME, array($this, 'add_settings_link'));
+    }
+
+    /**
+     * Run migrations when the stored version is older than the running code
+     *
+     * WordPress does not fire activation hooks when a plugin is updated, so
+     * version-dependent data changes have to be driven from a normal request.
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    public function maybe_upgrade(): void {
+        $stored_version = get_option('cfzt_version', '0');
+
+        if (version_compare($stored_version, CFZT_PLUGIN_VERSION, '>=')) {
+            return;
+        }
+
+        // 2.0.0 removed SAML support.
+        if (version_compare($stored_version, '2.0.0', '<')) {
+            $this->migrate_away_from_saml();
+        }
+
+        update_option('cfzt_version', CFZT_PLUGIN_VERSION);
+    }
+
+    /**
+     * Move a SAML-configured site onto OIDC without locking anyone out
+     *
+     * A site running SAML in primary login mode would have no working way in
+     * once the SAML handler is gone, because WordPress login is disabled and
+     * the only other path has been removed. Falling back to secondary mode
+     * keeps the normal login form available while the owner reconfigures.
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    private function migrate_away_from_saml(): void {
+        $options = get_option('cfzt_settings', array());
+
+        if (!is_array($options) || !isset($options['auth_method']) || 'saml' !== $options['auth_method']) {
+            return;
+        }
+
+        $options['auth_method'] = self::AUTH_METHOD_OIDC;
+
+        // Without this the site could become unreachable for every user.
+        $restored_login = false;
+        if (isset($options['login_mode']) && self::LOGIN_MODE_PRIMARY === $options['login_mode']) {
+            $options['login_mode'] = self::LOGIN_MODE_SECONDARY;
+            $restored_login = true;
+        }
+
+        // Retire the now-unused SAML settings.
+        unset($options['saml_sso_target_url'], $options['saml_sp_entity_id'], $options['saml_x509_cert']);
+
+        update_option('cfzt_settings', $options);
+        self::clear_options_cache();
+
+        // Surfaced by CFZT_Admin::saml_removal_notice() until dismissed.
+        update_option('cfzt_saml_removed_notice', $restored_login ? 'login_restored' : 'yes');
+
+        if (class_exists('CFZT_Logger')) {
+            CFZT_Logger::warning('SAML support was removed in 2.0.0; this site was switched to OIDC', array(
+                'login_mode_restored' => $restored_login,
+            ));
+        }
+
+        flush_rewrite_rules();
     }
     
     /**
@@ -253,7 +332,7 @@ class CFZT_Plugin {
         // Set activation notice flag
         set_transient('cfzt_activation_notice', true, 60 * 60 * 24); // Show for 24 hours
 
-        // Flush rewrite rules for SAML endpoints
+        // Flush rewrite rules so any stale endpoints are cleared
         flush_rewrite_rules();
 
         // Log activation (if logger is available)
@@ -279,7 +358,7 @@ class CFZT_Plugin {
         // Clear options cache
         self::clear_options_cache();
 
-        // Flush rewrite rules to remove SAML endpoints
+        // Flush rewrite rules to remove any plugin endpoints
         flush_rewrite_rules();
 
         // Note: We intentionally do NOT delete settings or user meta on deactivation
@@ -349,6 +428,31 @@ class CFZT_Plugin {
     }
 
     /**
+     * Get the OIDC callback URL for this site
+     *
+     * This is the single source of truth for the redirect URI. Authentication
+     * sends it during the authorization and token exchange, and provisioning
+     * registers it in Cloudflare, so the two must never drift apart.
+     *
+     * @since 1.1.0
+     *
+     * @return string Callback URL.
+     */
+    public static function get_redirect_uri(): string {
+        /**
+         * Filter the OIDC callback URL.
+         *
+         * Changing this requires updating the redirect URI on the Cloudflare
+         * application to match exactly.
+         *
+         * @since 1.1.0
+         *
+         * @param string $redirect_uri Callback URL.
+         */
+        return apply_filters('cfzt_redirect_uri', home_url('/wp-login.php?cfzt_callback=1'));
+    }
+
+    /**
      * Get setup progress information
      *
      * Calculates the percentage and list of completed/incomplete setup tasks
@@ -367,12 +471,8 @@ class CFZT_Plugin {
                 'completed' => !empty($options['team_domain'])
             ),
             'auth_credentials' => array(
-                'label' => $auth_method === 'saml'
-                    ? __('SAML credentials configured', 'cf-zero-trust')
-                    : __('OIDC credentials configured', 'cf-zero-trust'),
-                'completed' => $auth_method === 'saml'
-                    ? !empty($options['saml_sso_target_url'])
-                    : (!empty($options['client_id']) && !empty($options['client_secret']))
+                'label' => __('OIDC credentials configured', 'cf-zero-trust'),
+                'completed' => !empty($options['client_id']) && !empty($options['client_secret'])
             ),
             'login_mode' => array(
                 'label' => __('Login mode selected', 'cf-zero-trust'),

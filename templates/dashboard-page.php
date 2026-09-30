@@ -328,10 +328,10 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             </div>
             <h3><?php _e('Authentication Method', 'cf-zero-trust'); ?></h3>
             <div class="cfzt-stat-value" style="font-size: 28px;">
-                <?php echo $auth_method === 'saml' ? 'SAML' : 'OIDC'; ?>
+                <?php esc_html_e('OIDC', 'cf-zero-trust'); ?>
             </div>
             <div class="cfzt-stat-label">
-                <?php echo $auth_method === 'saml' ? __('Experimental mode', 'cf-zero-trust') : __('Production-ready', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Production-ready', 'cf-zero-trust'); ?>
             </div>
         </div>
 
@@ -411,33 +411,6 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             </div>
         <?php endif; ?>
 
-        <?php if ($auth_method === 'saml'): ?>
-            <?php if (class_exists('DOMDocument')): ?>
-                <div class="cfzt-health-check">
-                    <div class="cfzt-health-icon success">✓</div>
-                    <div class="cfzt-health-content">
-                        <div class="cfzt-health-title"><?php _e('PHP DOM Extension Available', 'cf-zero-trust'); ?></div>
-                        <div class="cfzt-health-desc"><?php _e('Required for SAML support', 'cf-zero-trust'); ?></div>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="cfzt-health-check">
-                    <div class="cfzt-health-icon error">✗</div>
-                    <div class="cfzt-health-content">
-                        <div class="cfzt-health-title"><?php _e('PHP DOM Extension Missing', 'cf-zero-trust'); ?></div>
-                        <div class="cfzt-health-desc"><?php _e('Required for SAML - please install php-xml package', 'cf-zero-trust'); ?></div>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <div class="cfzt-health-check">
-                <div class="cfzt-health-icon warning">⚠</div>
-                <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('SAML Mode Active', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('SAML does not perform signature validation - not recommended for production', 'cf-zero-trust'); ?></div>
-                </div>
-            </div>
-        <?php endif; ?>
 
         <?php if (class_exists('CFZT_GitHub_Updater')): ?>
             <div class="cfzt-health-check">

@@ -54,7 +54,6 @@ $logging_enabled = isset($options['enable_logging']) && $options['enable_logging
                     <select id="cfzt-filter-auth-method">
                         <option value=""><?php _e('All Methods', 'cf-zero-trust'); ?></option>
                         <option value="oidc"><?php _e('OIDC', 'cf-zero-trust'); ?></option>
-                        <option value="saml"><?php _e('SAML', 'cf-zero-trust'); ?></option>
                     </select>
                 </div>
 

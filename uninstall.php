@@ -17,6 +17,7 @@ if (!is_multisite() || is_super_admin()) {
     delete_option('cfzt_activated_time');
     delete_option('cfzt_version');
     delete_option('cfzt_activation_notice_dismissed');
+    delete_option('cfzt_saml_removed_notice');
 
     // Remove user meta for all users
     global $wpdb;

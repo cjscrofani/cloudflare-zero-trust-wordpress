@@ -17,24 +17,15 @@ class CFZT_Auth {
      * @var CFZT_Security
      */
     private $security;
-    
-    /**
-     * SAML handler instance
-     * @var CFZT_SAML
-     */
-    private $saml_handler;
-    
+
     /**
      * Constructor
-     * 
+     *
      * @param CFZT_Security $security Security instance
      */
     public function __construct($security) {
         $this->security = $security;
         $this->init_hooks();
-        
-        // Initialize SAML handler if needed
-        $this->init_saml_if_needed();
     }
     
     /**
@@ -93,32 +84,14 @@ class CFZT_Auth {
     }
     
     /**
-     * Initialize SAML handler if needed
-     */
-    private function init_saml_if_needed() {
-        $options = CFZT_Plugin::get_option();
-        if (isset($options['auth_method']) && $options['auth_method'] === 'saml' && !$this->saml_handler) {
-            require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-saml.php';
-            $this->saml_handler = new CFZT_SAML($this->security);
-        }
-    }
-    
-    /**
-     * Get authorization URL based on auth method
+     * Get authorization URL
      *
      * @return string Authorization URL
      */
     public function get_auth_url() {
-        $options = CFZT_Plugin::get_option();
-        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : CFZT_Plugin::AUTH_METHOD_OIDC;
-
-        if ($auth_method === CFZT_Plugin::AUTH_METHOD_SAML && $this->saml_handler) {
-            return $this->saml_handler->get_auth_url();
-        } else {
-            return $this->get_oidc_auth_url();
-        }
+        return $this->get_oidc_auth_url();
     }
-    
+
     /**
      * Get OIDC authorization URL
      * 
@@ -145,7 +118,7 @@ class CFZT_Auth {
         
         $params = array(
             'client_id' => $options['client_id'],
-            'redirect_uri' => home_url('/wp-login.php?cfzt_callback=1'),
+            'redirect_uri' => CFZT_Plugin::get_redirect_uri(),
             'response_type' => 'code',
             'scope' => 'openid email profile',
             'state' => $state
@@ -155,20 +128,10 @@ class CFZT_Auth {
     }
     
     /**
-     * Handle OAuth callback (for OIDC only)
+     * Handle the OIDC callback
      */
     public function handle_callback() {
-        // Only handle OIDC callbacks here
-        // SAML is handled through its own endpoints
         if (!isset($_GET['cfzt_callback']) || !isset($_GET['code']) || !isset($_GET['state'])) {
-            return;
-        }
-        
-        $options = CFZT_Plugin::get_option();
-        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : CFZT_Plugin::AUTH_METHOD_OIDC;
-
-        // Only process if using OIDC
-        if ($auth_method !== CFZT_Plugin::AUTH_METHOD_OIDC) {
             return;
         }
         
@@ -213,7 +176,7 @@ class CFZT_Auth {
                 array(
                     __('Verify your <strong>Client Secret</strong> in plugin settings matches Cloudflare', 'cf-zero-trust'),
                     __('Check that your <strong>Team Domain</strong> is correct', 'cf-zero-trust'),
-                    __('Ensure the <strong>Redirect URL</strong> matches exactly in Cloudflare: <code>' . esc_html(home_url('/wp-login.php?cfzt_callback=1')) . '</code>', 'cf-zero-trust'),
+                    __('Ensure the <strong>Redirect URL</strong> matches exactly in Cloudflare: <code>' . esc_html(CFZT_Plugin::get_redirect_uri()) . '</code>', 'cf-zero-trust'),
                     __('Test your connection using the "Test Connection" button in plugin settings', 'cf-zero-trust')
                 )
             );
@@ -268,7 +231,7 @@ class CFZT_Auth {
                 'client_id' => $options['client_id'],
                 'client_secret' => $client_secret,
                 'code' => $code,
-                'redirect_uri' => home_url('/wp-login.php?cfzt_callback=1')
+                'redirect_uri' => CFZT_Plugin::get_redirect_uri()
             )
         ));
         
@@ -495,18 +458,6 @@ class CFZT_Auth {
         CFZT_Logger::auth_attempt($identifier, $success, 'oidc', $message);
     }
     
-    /**
-     * Get SAML metadata URL if using SAML
-     *
-     * @return string|null Metadata URL or null if not using SAML
-     */
-    public function get_saml_metadata_url() {
-        if ($this->saml_handler) {
-            return $this->saml_handler->get_metadata_url();
-        }
-        return null;
-    }
-
     /**
      * Get login redirect URL
      *

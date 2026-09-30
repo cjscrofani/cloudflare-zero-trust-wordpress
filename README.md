@@ -2,23 +2,26 @@
 
 A secure WordPress authentication plugin that integrates Cloudflare Zero Trust OIDC (OpenID Connect) into your WordPress login system. Supports both SaaS and Self-hosted applications with enterprise-grade security features.
 
-## ⚠️ IMPORTANT SECURITY NOTICE
+## 🔒 A note on SAML
 
-**SAML Authentication Limitation:**
-This plugin includes experimental SAML support that **does NOT perform proper cryptographic signature validation**. The SAML implementation should **NOT be used in production environments** as it is vulnerable to response tampering and replay attacks.
+Versions before 2.0.0 shipped an experimental SAML implementation that did not verify
+response signatures, leaving it open to tampering and replay. **It was removed in 2.0.0
+rather than left in place behind a warning.**
 
-**Recommendations:**
-- ✅ **Use OIDC authentication** (fully implemented and secure)
-- ❌ **Do not use SAML** in production without additional security measures
-- 📖 See `class-cfzt-saml.php` for detailed security documentation
+Nothing is lost by this: a Cloudflare Access SaaS application terminates at the same place
+whether you reach it over OIDC or SAML, so OIDC — which is fully implemented and verified —
+covers every case this plugin supports. Sites that were configured for SAML are migrated to
+OIDC automatically on upgrade, and are moved off "Cloudflare only" login mode so they cannot
+be locked out mid-migration.
 
-If SAML is absolutely required, consider using a production-ready SAML library like SimpleSAMLphp, LightSAML, or OneLogin PHP SAML.
+If you genuinely need SAML as a protocol, use a maintained library such as SimpleSAMLphp,
+LightSAML or OneLogin PHP SAML rather than rolling it into a login plugin.
 
 ## 🚀 Features
 
 ### Authentication
-- **OIDC Integration**: Seamless authentication using Cloudflare Zero Trust OpenID Connect ✅ **Secure & Production-Ready**
-- **SAML Support**: Experimental SAML authentication ⚠️ **Not production-ready** (see security notice above)
+- **OIDC Integration**: Seamless authentication using Cloudflare Zero Trust OpenID Connect
+- **Automatic setup**: Provisions the Cloudflare Access application for you — no manual copying
 - **Dual Application Support**: Works with both SaaS and Self-hosted Cloudflare applications
 - **Flexible Login Modes**:
   - Secondary mode: Traditional WordPress login alongside Cloudflare login
@@ -49,7 +52,6 @@ If SAML is absolutely required, consider using a production-ready SAML library l
 - A Cloudflare account with Zero Trust enabled
 - SSL/HTTPS enabled on your WordPress site
 - OpenSSL PHP extension (recommended for encryption)
-- PHP DOM extension (required only if using SAML - not recommended for production)
 
 ## 🔧 Installation
 
@@ -65,6 +67,44 @@ git clone https://github.com/cjscrofani/cloudflare-zero-trust-wordpress.git clou
 ```
 
 ## ⚙️ Configuration
+
+### Automatic setup (recommended)
+
+The plugin can create the Cloudflare application for you. Go to **Settings → CF Zero Trust**,
+open the first wizard step, and use **Set this up for me**:
+
+1. Click **Create a token on Cloudflare**. This opens the Cloudflare dashboard with the
+   required permission already selected. Click **Continue to summary**, then **Create Token**,
+   and copy the token.
+2. Paste the token into the wizard and click **Connect**.
+3. Choose which Cloudflare account to use, name the application, and pick who should be
+   allowed to log in (an email domain, a list of addresses, or anyone your identity provider
+   authenticates).
+4. Click **Create application in Cloudflare**.
+
+The plugin then reads your team domain, creates a SaaS OIDC application pointed at this
+site's callback URL, attaches the Access policy, and saves the credentials. You can delete
+the API token in Cloudflare immediately afterwards.
+
+**Why a token rather than "log in with Cloudflare":** Cloudflare's OAuth requires every
+redirect URL to be registered in advance and matched exactly, and a plugin installed on
+arbitrary domains cannot pre-register them. Supporting a true one-click flow would mean
+routing your credentials through a server this project would have to host and you would have
+to trust. A token you create and revoke yourself keeps the plugin self-contained.
+
+**About the token:**
+- It is used only while setup runs and is **never written to your database**.
+- The provisioned client secret is stored server-side and is never sent back to your browser.
+- The token needs `Access: Apps and Policies → Edit` and
+  `Access: Organizations, Identity Providers, and Groups → Read`, both at the account level.
+
+If your Cloudflare account has no Zero Trust organization yet, create one (choose a team
+domain) in the [Zero Trust dashboard](https://one.dash.cloudflare.com/) first.
+
+### Manual setup
+
+Prefer to do it by hand, or automatic setup did not fit your environment? The steps below
+still work, and the wizard keeps them available under **Or set it up manually**.
 
 ### Step 1: Cloudflare Zero Trust Setup
 
@@ -138,7 +178,6 @@ CFZT_CLIENT_SECRET=your-client-secret-here
 
 ## 🔐 Security Considerations
 
-- **Use OIDC, not SAML**: The OIDC implementation is production-ready and secure. SAML is experimental only.
 - **Always use HTTPS** for your WordPress site
 - **Keep WordPress salts configured** properly in `wp-config.php` (affects encryption)
 - **Use environment variables** for credentials when possible (see Step 3 in Configuration)
@@ -158,9 +197,12 @@ cloudflare-zero-trust-login/
 ├── includes/
 │   ├── class-cfzt-admin.php
 │   ├── class-cfzt-auth.php
+│   ├── class-cfzt-cloudflare-api.php   # Cloudflare API v4 client
 │   ├── class-cfzt-login-ui.php
 │   ├── class-cfzt-plugin.php
+│   ├── class-cfzt-provisioner.php      # Creates the Access application
 │   ├── class-cfzt-security.php
+│   ├── class-cfzt-setup.php            # Guided setup AJAX endpoints
 │   └── class-github-updater.php
 ├── templates/
 │   ├── admin-page.php
@@ -179,6 +221,9 @@ cloudflare-zero-trust-login/
 #### Filters
 - `cfzt_default_role` - Modify default role for new users
 - `cfzt_user_data` - Modify user data before creation
+- `cfzt_redirect_uri` - Change the OIDC callback URL (must match the Cloudflare application exactly)
+- `cfzt_provision_app_body` - Modify the Access application payload before it is created
+- `cfzt_token_permission_keys` - Change the permissions requested by the token setup link
 
 ## 🐛 Troubleshooting
 

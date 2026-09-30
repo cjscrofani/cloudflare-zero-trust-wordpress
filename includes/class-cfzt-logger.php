@@ -160,7 +160,7 @@ class CFZT_Logger {
      *
      * @param string $identifier User email or username
      * @param bool $success Whether authentication succeeded
-     * @param string $auth_method Authentication method (oidc/saml)
+     * @param string $auth_method Authentication method
      * @param string $reason Optional reason for failure
      */
     public static function auth_attempt(string $identifier, bool $success, string $auth_method = 'oidc', string $reason = ''): void {
