@@ -543,17 +543,21 @@ class CFZT_Provisioner {
             array('key' => 'access_organizations_write', 'type' => 'read'),
         ));
 
-        // add_query_arg() URL-encodes values, so these are passed raw.
+        // These values are rawurlencode()d deliberately. WordPress's
+        // add_query_arg() does NOT encode values (build_query() passes
+        // $urlencode = false), so an unencoded JSON value survives until
+        // esc_url() strips {, } and " as invalid URL characters, silently
+        // mangling the permission list into something Cloudflare cannot read.
         return add_query_arg(
             array(
-                'permissionGroupKeys' => wp_json_encode($permission_keys),
+                'permissionGroupKeys' => rawurlencode(wp_json_encode($permission_keys)),
                 'accountId'           => '*',
                 'zoneId'              => 'all',
-                'name'                => sprintf(
+                'name'                => rawurlencode(sprintf(
                     /* translators: %s: site host name */
                     __('WordPress Zero Trust setup (%s)', 'cf-zero-trust'),
                     wp_parse_url(home_url(), PHP_URL_HOST)
-                ),
+                )),
             ),
             'https://dash.cloudflare.com/profile/api-tokens'
         );
