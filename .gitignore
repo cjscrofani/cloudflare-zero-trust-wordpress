@@ -109,3 +109,6 @@ blog.html
 # .eslintrc
 # .prettierrc
 # phpcs.xml
+
+# Local dev environment secrets
+.dev/.env
