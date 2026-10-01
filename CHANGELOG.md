@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CFZT_Plugin::get_redirect_uri()`** — single source of truth for the OIDC callback URL,
   filterable via `cfzt_redirect_uri`.
 - New filters: `cfzt_provision_app_body` and `cfzt_token_permission_keys`.
+- **Local test environment** in `.dev/` — WordPress over HTTPS with the plugin
+  bind-mounted, WP-CLI wired up, an optional cloudflared tunnel, and `dev seed-saml` to
+  reproduce a pre-2.0.0 SAML install so the upgrade migration can be tested deliberately.
+  See `.dev/VERIFICATION.md` for what has been verified and what still needs a real
+  Cloudflare account.
 
 ### Security
 - The Cloudflare API token is used only for the duration of setup and is **never written

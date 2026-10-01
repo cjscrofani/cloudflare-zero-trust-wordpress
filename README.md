@@ -188,6 +188,19 @@ CFZT_CLIENT_SECRET=your-client-secret-here
 
 ## 🛠️ Development
 
+### Local development
+
+A ready-made WordPress test environment lives in `.dev/`:
+
+```bash
+.dev/bin/dev up
+```
+
+That starts WordPress over HTTPS with the plugin bind-mounted, so host edits are live.
+See [`.dev/README.md`](.dev/README.md) for the full command list, including
+`.dev/bin/dev seed-saml`, which reproduces a pre-2.0.0 SAML install to exercise the
+upgrade migration.
+
 ### Project Structure
 ```
 cloudflare-zero-trust-login/
