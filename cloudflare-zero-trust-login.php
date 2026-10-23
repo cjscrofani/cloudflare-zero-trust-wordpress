@@ -3,7 +3,9 @@
  * Plugin Name: Cloudflare Zero Trust Login for WordPress
  * Plugin URI: https://github.com/cjscrofani/cloudflare-zero-trust-wordpress
  * Description: Secure WordPress authentication using Cloudflare Zero Trust OIDC (OpenID Connect). Supports both SaaS and Self-hosted applications with built-in security features.
- * Version: 1.0.4
+ * Version: 1.0.5
+ * Requires at least: 5.0
+ * Requires PHP: 7.2
  * Author: GDWS
  * License: GPL v2 or later
  * Text Domain: cf-zero-trust
@@ -19,7 +21,7 @@ define('CFZT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CFZT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CFZT_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('CFZT_PLUGIN_FILE', __FILE__);
-define('CFZT_PLUGIN_VERSION', '1.0.4');
+define('CFZT_PLUGIN_VERSION', '1.0.5');
 
 // GitHub repository details
 define('CFZT_GITHUB_USERNAME', 'cjscrofani');

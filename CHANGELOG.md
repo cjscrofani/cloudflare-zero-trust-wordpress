@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-23
+
+Security hotfix for every 1.0.x install. No settings changes; update and carry on.
+
+### Security
+- **Primary login mode could be bypassed.** Adding `?cfzt_callback=1` to the login URL
+  switched off the redirect to Cloudflare while leaving WordPress password login fully
+  working. In primary mode a password now never grants access, and the lost-password,
+  reset and registration screens are refused server-side instead of merely hidden. A
+  submitted backup code is the one deliberate exception; 2.0.0 makes that path reachable
+  from the primary-mode login screen.
+- **The OIDC `state` was shared by every visitor.** It was a WordPress nonce for user 0,
+  identical for all logged-out visitors for up to 12 hours and visible in the login
+  button, so a login started by one person could be completed in another person's browser
+  (login CSRF), and two people logging in at once broke each other. Each login now starts
+  at `wp-login.php?cfzt_action=login`, which mints a random state per attempt, binds it to
+  the browser with a short-lived HttpOnly `SameSite=Lax` cookie, and consumes it once.
+
+### Fixed
+- Every WordPress password login in secondary mode was rejected with "Please enter both
+  username and backup code", because the backup-code handler fired whenever its (always
+  present, hidden) field existed rather than when it held a value.
+- `redirect_to` now survives the Cloudflare round trip.
+- The login button no longer constructs a second authentication handler on every render,
+  which registered duplicate hooks.
+
+### Developer
+- New filter `cfzt_primary_mode_blocked_actions`.
+
 ## [1.0.4] - 2025-10-23
 
 ### Added
