@@ -14,7 +14,6 @@ if (!defined('ABSPATH')) {
 $options = CFZT_Plugin::get_option();
 $security = new CFZT_Security();
 $security_status = $security->get_security_status();
-$auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
 $is_configured = !empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret']);
 
 // Get setup progress

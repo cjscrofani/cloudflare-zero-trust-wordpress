@@ -98,7 +98,7 @@ class CFZT_Provisioner {
         if (empty($accounts)) {
             return new WP_Error(
                 'cfzt_no_accounts',
-                __('This token cannot see any Cloudflare accounts. Make sure you created a User API Token with the permissions listed above, and that your Cloudflare user has access to at least one account.', 'cf-zero-trust')
+                __('This token cannot see any Cloudflare accounts. This usually means it is missing Account → Account Settings → Read, which Cloudflare requires before a token can list accounts. Edit the token in Cloudflare to add that permission, then try again.', 'cf-zero-trust')
             );
         }
 
@@ -148,7 +148,8 @@ class CFZT_Provisioner {
      *     @type string $policy_value         Domain list or email list, per mode.
      *     @type string $session_duration     Access session duration, e.g. "24h".
      *     @type bool   $app_launcher_visible Show the app in the App Launcher.
-     *     @type bool   $overwrite            Proceed even if a matching app exists.
+     *     @type bool   $replace_existing     Delete any app already pointing at this
+     *                                        site's callback before creating the new one.
      * }
      * @return array|WP_Error
      */
@@ -185,23 +186,51 @@ class CFZT_Provisioner {
         $team_domain = $org['auth_domain'];
         $redirect_uri = CFZT_Plugin::get_redirect_uri();
 
-        // Refuse to create a second application for the same callback unless asked.
-        if (empty($args['overwrite'])) {
-            $existing = $this->find_app_by_redirect_uri($api, $account_id, $redirect_uri);
-            if (is_wp_error($existing)) {
-                return $existing;
+        // wp-config constants win over anything we store, and the new secret
+        // is returned by Cloudflare exactly once. Provisioning now would create
+        // a live application whose secret nobody has. Refuse up front.
+        if ((defined('CFZT_CLIENT_ID') && CFZT_CLIENT_ID) || (defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET)) {
+            return new WP_Error(
+                'cfzt_constants_defined',
+                __('CFZT_CLIENT_ID or CFZT_CLIENT_SECRET is defined in wp-config.php, and those values override anything saved here. Remove the constants (or create the application manually and update them), then run setup again.', 'cf-zero-trust')
+            );
+        }
+
+        // One callback, one application. If something already points at this
+        // site, either stop and ask, or replace it when the user has confirmed.
+        $existing = $this->find_apps_by_redirect_uri($api, $account_id, $redirect_uri);
+        if (is_wp_error($existing)) {
+            return $existing;
+        }
+
+        if (!empty($existing) && empty($args['replace_existing'])) {
+            $first = $existing[0];
+            return new WP_Error(
+                'cfzt_app_exists',
+                sprintf(
+                    /* translators: %s: existing Cloudflare application name */
+                    __('An Access application called "%s" already points at this site. You can replace it: the old application will be deleted from Cloudflare and a new one created with fresh credentials.', 'cf-zero-trust'),
+                    isset($first['name']) ? $first['name'] : __('Untitled', 'cf-zero-trust')
+                ),
+                array(
+                    'existing_app_id'   => isset($first['id']) ? $first['id'] : '',
+                    'existing_app_name' => isset($first['name']) ? $first['name'] : '',
+                )
+            );
+        }
+
+        foreach ($existing as $old_app) {
+            if (empty($old_app['id'])) {
+                continue;
             }
-            if (null !== $existing) {
+            $deleted = $api->delete_access_app($account_id, $old_app['id']);
+            if (is_wp_error($deleted)) {
                 return new WP_Error(
-                    'cfzt_app_exists',
+                    'cfzt_replace_failed',
                     sprintf(
-                        /* translators: %s: existing Cloudflare application name */
-                        __('An Access application called "%s" already points at this site. Creating another would leave duplicate apps in Cloudflare. Delete the old one, or confirm to create a second application anyway.', 'cf-zero-trust'),
-                        isset($existing['name']) ? $existing['name'] : __('Untitled', 'cf-zero-trust')
-                    ),
-                    array(
-                        'existing_app_id'   => isset($existing['id']) ? $existing['id'] : '',
-                        'existing_app_name' => isset($existing['name']) ? $existing['name'] : '',
+                        /* translators: %s: error detail from Cloudflare */
+                        __('Could not delete the existing application, so nothing was changed: %s', 'cf-zero-trust'),
+                        $deleted->get_error_message()
                     )
                 );
             }
@@ -229,7 +258,7 @@ class CFZT_Provisioner {
         /**
          * Filter the Access application payload before it is sent to Cloudflare.
          *
-         * @since 1.1.0
+         * @since 2.0.0
          *
          * @param array  $body       Application payload.
          * @param string $account_id Cloudflare account id.
@@ -284,35 +313,36 @@ class CFZT_Provisioner {
     }
 
     /**
-     * Find an existing SaaS application already pointing at our callback
+     * Find every SaaS application already pointing at our callback
      *
-     * @param CFZT_Cloudflare_API $api        API client.
-     * @param string              $account_id Cloudflare account id.
+     * @param CFZT_Cloudflare_API $api          API client.
+     * @param string              $account_id   Cloudflare account id.
      * @param string              $redirect_uri Callback URL to match.
-     * @return array|null|WP_Error Matching app, null if none, WP_Error on failure.
+     * @return array|WP_Error Matching apps (possibly empty), WP_Error on failure.
      */
-    private function find_app_by_redirect_uri(CFZT_Cloudflare_API $api, string $account_id, string $redirect_uri) {
+    private function find_apps_by_redirect_uri(CFZT_Cloudflare_API $api, string $account_id, string $redirect_uri) {
         $apps = $api->get_access_apps($account_id);
 
         if (is_wp_error($apps)) {
             // Listing is a courtesy check. A token that can create but not list
             // should not be blocked from provisioning.
             if ('cfzt_api_forbidden' === $apps->get_error_code()) {
-                return null;
+                return array();
             }
             return $apps;
         }
 
+        $matches = array();
         foreach ($apps as $app) {
             if (empty($app['saas_app']['redirect_uris']) || !is_array($app['saas_app']['redirect_uris'])) {
                 continue;
             }
             if (in_array($redirect_uri, $app['saas_app']['redirect_uris'], true)) {
-                return $app;
+                $matches[] = $app;
             }
         }
 
-        return null;
+        return $matches;
     }
 
     /**
@@ -380,7 +410,13 @@ class CFZT_Provisioner {
         }
 
         return array(
-            'name'     => __('WordPress administrators', 'cf-zero-trust'),
+            // Named for what it does: it admits people to the WordPress login,
+            // not to an administrator role. Roles come from plugin settings.
+            'name'     => sprintf(
+                /* translators: %s: site host name */
+                __('WordPress login (%s)', 'cf-zero-trust'),
+                wp_parse_url(home_url(), PHP_URL_HOST)
+            ),
             'decision' => 'allow',
             'include'  => $include,
         );
@@ -428,9 +464,14 @@ class CFZT_Provisioner {
      * @return string
      */
     private function resolve_session_duration(array $args): string {
-        $duration = isset($args['session_duration']) ? trim($args['session_duration']) : '';
+        $duration = isset($args['session_duration']) ? strtolower(trim($args['session_duration'])) : '';
 
-        if (!preg_match('/^\d+(m|h|d)$/', $duration)) {
+        // Cloudflare accepts minutes and hours only; express days as hours.
+        if (preg_match('/^(\d+)d$/', $duration, $m)) {
+            return ((int) $m[1] * 24) . 'h';
+        }
+
+        if (!preg_match('/^\d+[mh]$/', $duration)) {
             return self::DEFAULT_SESSION_DURATION;
         }
 
@@ -451,14 +492,6 @@ class CFZT_Provisioner {
         $idps = $api->get_identity_providers($account_id);
         if (!is_wp_error($idps) && empty($idps)) {
             $warnings[] = __('This Cloudflare account has no identity providers configured. Add one (or enable One-time PIN) in Zero Trust → Settings → Authentication, or nobody will be able to log in.', 'cf-zero-trust');
-        }
-
-        // wp-config constants win over whatever we just stored.
-        if (defined('CFZT_CLIENT_ID') && CFZT_CLIENT_ID) {
-            $warnings[] = __('CFZT_CLIENT_ID is defined in wp-config.php and overrides the saved value. Update the constant to the new client ID.', 'cf-zero-trust');
-        }
-        if (defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET) {
-            $warnings[] = __('CFZT_CLIENT_SECRET is defined in wp-config.php and overrides the saved value. Update the constant to the new client secret, which is shown only once.', 'cf-zero-trust');
         }
 
         if (!$this->security->is_encryption_available()) {
@@ -492,6 +525,7 @@ class CFZT_Provisioner {
         $options['app_type']      = CFZT_Plugin::APP_TYPE_SAAS;
         $options['team_domain']   = $data['team_domain'];
         $options['client_id']     = $data['client_id'];
+
         $options['client_secret'] = $this->security->encrypt_data($data['client_secret']);
 
         // Provenance, so the UI can tell a provisioned app from a hand-made one.
@@ -513,8 +547,9 @@ class CFZT_Provisioner {
             $options['enable_logging'] = CFZT_Plugin::OPTION_NO;
         }
 
-        update_option('cfzt_settings', $options);
-        CFZT_Plugin::clear_options_cache();
+        // Bypasses the form sanitizer, which would otherwise encrypt the
+        // already-encrypted secret a second time.
+        CFZT_Plugin::save_settings($options);
 
         // The setup is demonstrably complete now, so stop nagging about it.
         update_option('cfzt_activation_notice_dismissed', true);
@@ -534,13 +569,23 @@ class CFZT_Provisioner {
         /**
          * Filter the permission groups requested by the token deep link.
          *
-         * @since 1.1.0
+         * @since 2.0.0
          *
          * @param array $keys Permission group keys.
          */
+        // Keys are the template keys from Cloudflare's "API token template URLs"
+        // reference (developers.cloudflare.com/fundamentals/api/how-to/account-owned-token-template/),
+        // not the permission group ids or labels: `access` is "Access: Apps and
+        // Policies", `access_acct` is "Access: Organizations, Identity Providers,
+        // and Groups", and `account_settings` is "Account Settings". The last one
+        // is what lets GET /accounts list the account at all: with only the two
+        // Access permissions Cloudflare returns an empty list and setup cannot
+        // start. Verified against the live dashboard and a real provision on
+        // 2026-10-23.
         $permission_keys = apply_filters('cfzt_token_permission_keys', array(
-            array('key' => 'access_apps_write', 'type' => 'edit'),
-            array('key' => 'access_organizations_write', 'type' => 'read'),
+            array('key' => 'access', 'type' => 'edit'),
+            array('key' => 'access_acct', 'type' => 'read'),
+            array('key' => 'account_settings', 'type' => 'read'),
         ));
 
         // These values are rawurlencode()d deliberately. WordPress's

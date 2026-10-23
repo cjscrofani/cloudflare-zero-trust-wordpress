@@ -61,18 +61,6 @@ class CFZT_Cloudflare_API {
     }
 
     /**
-     * Verify the token and return its status/id
-     *
-     * Only valid for user-owned tokens. Account-owned tokens return an error
-     * here, so callers should treat a failure as advisory rather than fatal.
-     *
-     * @return array|WP_Error
-     */
-    public function verify_token() {
-        return $this->request('GET', '/user/tokens/verify');
-    }
-
-    /**
      * List accounts the token can see
      *
      * @return array|WP_Error Array of account objects.
@@ -256,13 +244,27 @@ class CFZT_Cloudflare_API {
                 $status
             );
 
-        // Invalid, expired or malformed token.
-        if (in_array($status, array(400, 401), true) || array_intersect($codes, array(1000, 6003, 9109))) {
+        // Invalid, expired or malformed token. A bare 400 is *not* this: it
+        // is Cloudflare rejecting the request body, and telling the user to
+        // re-create their token would send them in exactly the wrong direction.
+        if (401 === $status || array_intersect($codes, array(1000, 6003, 9109))) {
             return new WP_Error(
                 'cfzt_api_unauthorized',
                 sprintf(
                     /* translators: %s: error detail from Cloudflare */
                     __('Cloudflare rejected the API token: %s. Check that you pasted the whole token and that it has not been revoked.', 'cf-zero-trust'),
+                    $detail
+                ),
+                array('status' => $status)
+            );
+        }
+
+        if (400 === $status) {
+            return new WP_Error(
+                'cfzt_api_bad_request',
+                sprintf(
+                    /* translators: %s: error detail from Cloudflare */
+                    __('Cloudflare rejected the request: %s', 'cf-zero-trust'),
                     $detail
                 ),
                 array('status' => $status)

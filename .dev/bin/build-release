@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Build the release zip WordPress expects: a single top-level folder named after
+# the plugin slug, with dev-only files excluded via .gitattributes export-ignore.
+#
+# Usage: .dev/bin/build-release [git-ref]   (defaults to HEAD)
+# Output: dist/cloudflare-zero-trust-login-<version>.zip
+#
+# Attach the result to the GitHub release as an asset. The in-plugin updater
+# prefers a .zip asset over the tag zipball, and the asset already has the right
+# folder name so no rename is needed on install.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+ref="${1:-HEAD}"
+slug="cloudflare-zero-trust-login"
+version="$(git show "${ref}:cloudflare-zero-trust-login.php" | sed -n 's/^ \* Version: *\([0-9][0-9.]*\).*/\1/p' | head -1)"
+
+if [[ -z "$version" ]]; then
+  echo "Could not read the Version header from ${ref}" >&2
+  exit 1
+fi
+
+mkdir -p dist
+out="dist/${slug}-${version}.zip"
+rm -f "$out"
+git archive --format=zip --prefix="${slug}/" -o "$out" "$ref"
+
+echo "Built $out"
+echo "Contents check (should show no .dev/ or *.md entries):"
+unzip -l "$out" | awk '{print $4}' | grep -E '^cloudflare-zero-trust-login/(\.dev|.*\.md)' && exit 1 || echo "  clean"

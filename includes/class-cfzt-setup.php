@@ -88,7 +88,7 @@ class CFZT_Setup {
             'policy_value'         => isset($_POST['policy_value']) ? sanitize_text_field(wp_unslash($_POST['policy_value'])) : '',
             'session_duration'     => isset($_POST['session_duration']) ? sanitize_text_field(wp_unslash($_POST['session_duration'])) : '',
             'app_launcher_visible' => !empty($_POST['app_launcher_visible']) && 'false' !== $_POST['app_launcher_visible'],
-            'overwrite'            => !empty($_POST['overwrite']) && 'false' !== $_POST['overwrite'],
+            'replace_existing'     => !empty($_POST['replace_existing']) && 'false' !== $_POST['replace_existing'],
         );
 
         $result = $this->provisioner->provision($token, $account_id, $args);
@@ -98,7 +98,7 @@ class CFZT_Setup {
                 'code'    => $result->get_error_code(),
                 'message' => $result->get_error_message(),
                 // Lets the UI offer a confirm-and-retry instead of a dead end.
-                'can_overwrite' => 'cfzt_app_exists' === $result->get_error_code(),
+                'can_replace' => 'cfzt_app_exists' === $result->get_error_code(),
                 'data'    => $result->get_error_data(),
             ));
         }

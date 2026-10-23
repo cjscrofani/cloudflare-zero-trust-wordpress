@@ -114,6 +114,8 @@ class CFZT_Plugin {
      */
     private function init_components() {
         $this->security = new CFZT_Security();
+        add_action('login_init', array($this->security, 'add_security_headers'));
+
         $this->auth = new CFZT_Auth($this->security);
         $this->admin = new CFZT_Admin($this->security);
         $this->login_ui = new CFZT_Login_UI();
@@ -137,8 +139,11 @@ class CFZT_Plugin {
         // Text domain
         add_action('init', array($this, 'load_textdomain'));
 
-        // Run data migrations after an update (activation hooks do not fire on update)
-        add_action('admin_init', array($this, 'maybe_upgrade'));
+        // Run data migrations after an update. Activation hooks do not fire on
+        // update, and admin_init does not fire on wp-login.php, so this has to
+        // run on init or an auto-updated primary-mode site could sit with a
+        // broken login page until an administrator happened to visit wp-admin.
+        add_action('init', array($this, 'maybe_upgrade'), 1);
 
         // Settings link on plugins page
         add_filter('plugin_action_links_' . CFZT_PLUGIN_BASENAME, array($this, 'add_settings_link'));
@@ -155,18 +160,88 @@ class CFZT_Plugin {
      * @return void
      */
     public function maybe_upgrade(): void {
-        $stored_version = get_option('cfzt_version', '0');
+        self::run_upgrades();
+    }
+
+    /**
+     * Apply every migration newer than the stored version, then stamp it
+     *
+     * Static so activate() can call it too: a deactivate/delete/upload
+     * reinstall never goes through maybe_upgrade(), and used to stamp the new
+     * version without migrating anything.
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    public static function run_upgrades(): void {
+        $stored_version = (string) get_option('cfzt_version', '0');
 
         if (version_compare($stored_version, CFZT_PLUGIN_VERSION, '>=')) {
             return;
         }
 
-        // 2.0.0 removed SAML support.
         if (version_compare($stored_version, '2.0.0', '<')) {
-            $this->migrate_away_from_saml();
+            // 2.0.0 removed SAML support.
+            self::migrate_away_from_saml();
+            // 2.0.0 marks encrypted values so they are never encrypted twice.
+            self::normalize_secret_encoding();
         }
 
         update_option('cfzt_version', CFZT_PLUGIN_VERSION);
+    }
+
+    /**
+     * Write the settings option without running the form sanitizer
+     *
+     * register_setting() attaches CFZT_Admin::sanitize_settings() to every
+     * update_option('cfzt_settings') call, which is right for the settings
+     * form and wrong for everything else: the sanitizer encrypts the client
+     * secret, so a programmatic write that already holds ciphertext (import,
+     * provisioning, migrations) would store it encrypted twice and break every
+     * login. All non-form writes go through here with fully prepared values.
+     *
+     * @since 2.0.0
+     *
+     * @param array $options Complete settings array, secret already encrypted.
+     * @return void
+     */
+    public static function save_settings(array $options): void {
+        CFZT_Admin::$raw_write = true;
+        try {
+            update_option('cfzt_settings', $options);
+        } finally {
+            CFZT_Admin::$raw_write = false;
+        }
+        self::clear_options_cache();
+    }
+
+    /**
+     * Re-encode a 1.x client secret with the 2.0.0 encryption marker
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    private static function normalize_secret_encoding(): void {
+        $options = get_option('cfzt_settings', array());
+        if (!is_array($options) || empty($options['client_secret']) || !is_string($options['client_secret'])) {
+            return;
+        }
+
+        $security = new CFZT_Security();
+        if ($security->is_encrypted($options['client_secret'])) {
+            return;
+        }
+
+        $plaintext = $security->decrypt_data($options['client_secret']);
+        if ('' === $plaintext) {
+            // Undecryptable (salts changed?). Leave it; the admin will re-enter it.
+            return;
+        }
+
+        $options['client_secret'] = $security->encrypt_data($plaintext);
+        self::save_settings($options);
     }
 
     /**
@@ -181,7 +256,7 @@ class CFZT_Plugin {
      *
      * @return void
      */
-    private function migrate_away_from_saml(): void {
+    private static function migrate_away_from_saml(): void {
         $options = get_option('cfzt_settings', array());
 
         if (!is_array($options) || !isset($options['auth_method']) || 'saml' !== $options['auth_method']) {
@@ -200,8 +275,7 @@ class CFZT_Plugin {
         // Retire the now-unused SAML settings.
         unset($options['saml_sso_target_url'], $options['saml_sp_entity_id'], $options['saml_x509_cert']);
 
-        update_option('cfzt_settings', $options);
-        self::clear_options_cache();
+        self::save_settings($options);
 
         // Surfaced by CFZT_Admin::saml_removal_notice() until dismissed.
         update_option('cfzt_saml_removed_notice', $restored_login ? 'login_restored' : 'yes');
@@ -211,8 +285,6 @@ class CFZT_Plugin {
                 'login_mode_restored' => $restored_login,
             ));
         }
-
-        flush_rewrite_rules();
     }
     
     /**
@@ -326,14 +398,16 @@ class CFZT_Plugin {
 
         // Set activation timestamp
         add_option('cfzt_activated_time', current_time('timestamp'));
-        update_option('cfzt_version', CFZT_PLUGIN_VERSION);
         update_option('cfzt_db_version', '1.0');
+
+        // A manual reinstall (deactivate, delete, upload, activate) arrives
+        // here with the old site's settings still in the database. Run the
+        // same migrations an in-place update would, before stamping the version.
+        self::run_upgrades();
+        update_option('cfzt_version', CFZT_PLUGIN_VERSION);
 
         // Set activation notice flag
         set_transient('cfzt_activation_notice', true, 60 * 60 * 24); // Show for 24 hours
-
-        // Flush rewrite rules so any stale endpoints are cleared
-        flush_rewrite_rules();
 
         // Log activation (if logger is available)
         if (class_exists('CFZT_Logger')) {
@@ -357,9 +431,6 @@ class CFZT_Plugin {
 
         // Clear options cache
         self::clear_options_cache();
-
-        // Flush rewrite rules to remove any plugin endpoints
-        flush_rewrite_rules();
 
         // Note: We intentionally do NOT delete settings or user meta on deactivation
         // Only uninstall.php should do that (when plugin is fully deleted)
@@ -434,7 +505,7 @@ class CFZT_Plugin {
      * sends it during the authorization and token exchange, and provisioning
      * registers it in Cloudflare, so the two must never drift apart.
      *
-     * @since 1.1.0
+     * @since 2.0.0
      *
      * @return string Callback URL.
      */
@@ -445,7 +516,7 @@ class CFZT_Plugin {
          * Changing this requires updating the redirect URI on the Cloudflare
          * application to match exactly.
          *
-         * @since 1.1.0
+         * @since 2.0.0
          *
          * @param string $redirect_uri Callback URL.
          */
@@ -463,7 +534,6 @@ class CFZT_Plugin {
      */
     public static function get_setup_progress(): array {
         $options = self::get_option();
-        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
 
         $tasks = array(
             'team_domain' => array(

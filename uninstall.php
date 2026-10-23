@@ -44,7 +44,7 @@ if (!is_multisite() || is_super_admin()) {
     $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'cfzt_%'");
     
     // Clean up transients
-    // This includes: cfzt_auth_state_*, cfzt_attempts_*, cfzt_flush_rewrite_rules, and GitHub updater cache
+    // This includes: cfzt_auth_flow_*, cfzt_attempts_*, cfzt_settings_saved_success, and the GitHub updater cache
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_cfzt_%'");
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_cfzt_%'");
     
@@ -60,7 +60,4 @@ if (!is_multisite() || is_super_admin()) {
 
     // Remove any scheduled events (if any were added in the future)
     wp_clear_scheduled_hook('cfzt_cleanup_transients');
-
-    // Flush rewrite rules to clean up any custom endpoints
-    flush_rewrite_rules();
 }

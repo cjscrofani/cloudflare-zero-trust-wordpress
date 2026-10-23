@@ -69,7 +69,8 @@ gulpfile.js export-ignore
 /tests export-ignore
 /docs export-ignore
 /build export-ignore
-/dev export-ignore
+/.dev export-ignore
+.dev export-ignore
 /local export-ignore
 README.md export-ignore
 CONTRIBUTING.md export-ignore
