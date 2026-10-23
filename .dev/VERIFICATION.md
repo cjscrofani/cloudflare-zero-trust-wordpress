@@ -1,8 +1,8 @@
 # 2.0.0 pre-release verification
 
-Status as of 2026-10-01. 2.0.0 is code-complete on
-`feat/auto-provisioning-and-saml-removal`. **Two checks remain, and both need a real
-Cloudflare account.** Everything testable without one has been done.
+Status as of 2026-10-23. 2.0.0 is code-complete on
+`feat/auto-provisioning-and-saml-removal`. **All three release-gate checks have passed** against a real Cloudflare account on a public
+hostname. The remaining items are the two known gaps below and a release decision.
 
 ## Release gate
 
@@ -13,47 +13,56 @@ work sooner, hold the version bump back rather than shipping an unverified 2.0.0
 
 ## Outstanding — needs your Cloudflare account
 
-### 1. Token deep link preselects the permissions
+### 1. Token deep link preselects the permissions — DONE 2026-10-23
 
-Open the wizard's **Create a token on Cloudflare** link and confirm the Cloudflare token
-screen arrives with permissions already selected, rather than showing an "unresolved
-permission key" notice.
-
-The short keys are **inferred, not confirmed**:
+Confirmed against the live dashboard. The original keys (`access_apps_write`,
+`access_organizations_write`) were wrong: the dashboard filled in the token name but left
+Permissions empty. The permission-group `label` values (`access_write`, `access_acct_read`)
+were wrong too. The template URL wants the keys from Cloudflare's [API token template
+URLs](https://developers.cloudflare.com/fundamentals/api/how-to/account-owned-token-template/)
+reference, which are the labels without their read/write suffix:
 
 ```
-access_apps_write          (edit)
-access_organizations_write (read)
+access       (edit)  → Account · Access: Apps and Policies · Edit
+access_acct  (read)  → Account · Access: Organizations, Identity Providers, and Groups · Read
 ```
 
-If either is wrong, correct it via the `cfzt_token_permission_keys` filter, or read the
-real keys from `GET /accounts/{id}/tokens/permission_groups`. The wizard already lists the
-permissions in prose as a fallback, so a wrong key degrades to a manual step rather than a
-broken token.
+With those, both rows preselect and Account Resources defaults to "All accounts". Fixed in
+`class-cfzt-provisioner.php`.
 
-### 2. Cloudflare accepts the redirect URI
+### 2. Cloudflare accepts the redirect URI — DONE 2026-10-23
 
-Run a real provision and watch for a validation error on `redirect_uris`. The URI contains
-a query string:
+Provisioned for real against a public hostname (the GDWS Sandbox on Cloudways,
+`https://wordpress-1180674-6746829.cloudwaysapps.com`). Cloudflare accepted
 
 ```
 https://<host>/wp-login.php?cfzt_callback=1
 ```
 
-**If it is rejected, the fix is a real decision, not a detail.** The `cfzt_redirect_uri`
-filter is a one-liner but leaves every install needing it. Moving to a rewrite path is the
-correct fix, but it changes the callback URL and breaks existing 1.0.x installs whose
-Cloudflare applications point at the old one — that needs a migration and a release note.
+without complaint, created the SaaS OIDC application and policy, and the plugin saved the
+team domain, client ID and secret. No rewrite-path migration is needed.
 
-Note that `cfzt.local` may not be a hostname Cloudflare will accept, and a rejection there
-is **indistinguishable** from a rejection of the query string. To get an unambiguous
-answer, use the cloudflared tunnel (see `.dev/README.md`) so the site has a genuine public
-hostname.
+Three bugs surfaced on the way and are fixed on the branch:
 
-### 3. Then: actually log in
+- With only the two Access permissions, `GET /accounts` returns an empty list and the wizard
+  stops at "This token cannot see any Cloudflare accounts." Adding **Account Settings: Read**
+  to the token fixed it; the deep link, prose and error message now include it.
+- The saved client secret was encrypted twice (provisioner + settings sanitizer), so login
+  would have failed at the token exchange.
+- The provenance keys were dropped on a first provision for the same sanitizer reason.
 
-Provisioning succeeding does not prove the application works. A wrong scope or a missing
-identity provider only shows up at login. Complete a full round trip.
+### 3. Then: actually log in — DONE 2026-10-23
+
+Full round trip completed on the sandbox: login button → Cloudflare Access (the client's
+team, Google IdP) → callback with `code` and `state` → WordPress session. The plugin created
+the user from the IdP identity with `cfzt_user`, `cfzt_auth_method=oidc`, `cfzt_sub` and
+`cfzt_last_login` meta, as a subscriber (the default role). One wrinkle: the wizard's policy
+defaulted to the WordPress admin email's domain (`gdws.co`), which did not match the identity
+provider's domain, so Access denied the first attempt until the policy was widened. Worth a
+clearer hint in the wizard about which email domains the IdP actually issues.
+
+Also found and fixed on the sandbox: **ordinary password logins were rejected in secondary
+mode** by the backup-code handler (shipped in 1.0.4; see CHANGELOG).
 
 ## Verified
 
@@ -96,3 +105,23 @@ the only other way in has been removed:
 - `CFZT_Security::encrypt_data()` derives its IV from a salt, so every value encrypts under
   the same IV and identical secrets produce identical ciphertext. Pre-existing, unchanged
   here, worth fixing now that setup writes secrets automatically.
+
+
+## 2026-10-23 (later): post-audit fixes
+
+Three independent reviewers audited the branch (see `AUDIT-2026-10-23.md`). All findings
+were fixed the same day. Automated checks run against the local dev site are listed in
+the audit file's Resolution note. On the sandbox:
+
+- Deployed the fixed tree; set `cfzt_version` back to `1.0.4` and loaded a page: the
+  upgrade ran on `init`, re-encoded the stored secret with the `cfzt-enc:v1:` marker,
+  and it still decrypts.
+- `GET wp-login.php?cfzt_action=login` redirects to the Cloudflare authorization URL with
+  a fresh `state` and `nonce`, scope `openid email profile groups`, and sets the
+  `cfzt_oidc_flow` cookie (HttpOnly, Secure, SameSite=Lax, 10 minutes).
+- Real login round trip through Cloudflare (2026-10-23 23:40 UTC): clicked "Login with
+  Cloudflare Zero Trust" on the sandbox, signed in through a Google Workspace identity,
+  and landed in wp-admin (profile page, as a Subscriber).
+  Server side: `cfzt_last_login` updated, `cfzt_auth_method=oidc`, role unchanged. This
+  exercised the per-browser state cookie, the state check, the ID-token nonce/audience/
+  issuer check and the `groups` scope against live Cloudflare Access.

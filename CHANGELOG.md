@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-09-30
+## [2.0.0] - 2026-10-23
 
 ### Removed
 - **BREAKING: SAML authentication has been removed.** The implementation never performed
@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `class-cfzt-saml.php`, its settings, its rewrite endpoints and the PHP DOM requirement.
 - The wizard's "Choose Method" step, which now had only one option, along with the
   SAML fields, warnings and health checks throughout the admin UI.
+- The automatic dark-mode CSS, the one-option authentication-method selector, rewrite-rule
+  flushing (nothing registers rewrite rules any more), the PHP-session "fingerprint" code
+  (it was never called), and the on-disk JS/CSS generators, which duplicated the files in
+  `assets/`.
 
 ### Migration
 - Sites configured for SAML are switched to OIDC automatically on upgrade.
@@ -24,17 +28,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   WordPress login."** Without this they would have had no working way in: WordPress login was
   disabled and the only other path has been removed.
 - The stored SAML settings are discarded, and a persistent admin notice explains what changed
-  and links to OIDC setup. Migrations run from `admin_init`, because WordPress does not fire
-  activation hooks on plugin update.
+  and links to OIDC setup.
+- Migrations run on `init` and from the activation hook, so they cover background updates
+  through the WordPress updater and manual reinstalls (deactivate, delete, upload, activate)
+  alike.
+- Client secrets saved by 1.x are re-encoded with the new encryption marker (see Fixed).
 
 ### Added
 - **Automatic Cloudflare provisioning.** The setup wizard can now create the Zero Trust
   Access application for you. Paste a scoped API token once and the plugin discovers your
   account, reads your team domain, creates a SaaS OIDC application pointed at this site's
-  callback URL, attaches an Access policy, and saves the credentials. The manual
-  instructions remain available as a fallback.
-- **Pre-filled API token link.** The wizard links to Cloudflare with the required
-  permissions already selected, so the token can be created in a few clicks.
+  callback URL, attaches an Access policy named "WordPress login (<host>)", and saves the
+  credentials. The page then locks and reloads so stale form values cannot overwrite them.
+  The manual instructions remain available as a fallback.
+- Once the plugin has created an application the wizard shows a **Connected to Cloudflare**
+  summary with a **Run automatic setup again** button. If an application already points at
+  this site, **Replace the existing application** deletes it in Cloudflare before creating a
+  new one, so no orphaned app with a lost secret is left behind.
+- **Pre-filled API token link.** The wizard links to Cloudflare with the three required
+  permissions already selected (Access: Apps and Policies → Edit; Access: Organizations,
+  Identity Providers, and Groups → Read; Account Settings → Read), so the token can be
+  created in a few clicks.
+- The wizard's policy step explains that the identity-provider domain may differ from the
+  WordPress admin email's domain, and the "everyone" option warns that, combined with
+  auto-create, any identity the identity provider accepts gets a WordPress account.
 - **`CFZT_Cloudflare_API`** — a minimal Cloudflare API v4 client covering the endpoints
   needed for provisioning.
 - **`CFZT_Provisioner`** — provisioning logic that accepts any bearer token, so the
@@ -42,29 +59,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CFZT_Setup`** — admin-AJAX endpoints for the guided setup flow.
 - **`CFZT_Plugin::get_redirect_uri()`** — single source of truth for the OIDC callback URL,
   filterable via `cfzt_redirect_uri`.
-- New filters: `cfzt_provision_app_body` and `cfzt_token_permission_keys`.
 - **Local test environment** in `.dev/` — WordPress over HTTPS with the plugin
   bind-mounted, WP-CLI wired up, an optional cloudflared tunnel, and `dev seed-saml` to
   reproduce a pre-2.0.0 SAML install so the upgrade migration can be tested deliberately.
-  See `.dev/VERIFICATION.md` for what has been verified and what still needs a real
-  Cloudflare account.
+  `.dev/VERIFICATION.md` records the release-gate checks, all of which passed against a
+  real Cloudflare account on 2026-10-23.
+
+### Changed
+- **New accounts use the full email address as the WordPress username** (for example
+  `jane@example.com` rather than `jane`), so people from different domains are far less
+  likely to collide or be renamed with a numeric suffix. Existing accounts are untouched.
+  Filterable via `cfzt_new_username`.
+- The login request now asks Cloudflare for the `groups` scope, so the groups claim that
+  role mapping reads is actually sent. Provisioned applications already granted it.
+- **Role mapping is re-applied on every login** for accounts the plugin created, whenever
+  Cloudflare sends a group claim. Accounts made by hand keep their role. Disable with the
+  `cfzt_sync_role_on_login` filter.
+- **Email domain restrictions are checked on every Cloudflare login**, not only when an
+  account is created.
+- **The client secret is never displayed.** The settings field is always empty; leave it
+  blank to keep the saved secret. Settings exports no longer contain it either, so enter it
+  by hand after importing. Imports from 1.x exports, which carried it, still restore it.
+- Login starts at a local endpoint (`wp-login.php?cfzt_action=login`) rather than a
+  Cloudflare URL rendered into the page. The login button and primary-mode redirects point
+  there; `CFZT_Auth::get_auth_url()` still works and returns it.
+- A `redirect_to` on the login URL is now preserved through the Cloudflare round trip.
+- Only failed attempts count towards the rate limit, so repeated successful logins never
+  lock anyone out.
+- Log retention raised from 1,000 to 10,000 rows (filterable via `cfzt_log_retention_rows`).
+- Automatic setup is refused while `CFZT_CLIENT_ID` or `CFZT_CLIENT_SECRET` is defined in
+  `wp-config.php`, instead of creating an application whose secret could never be stored.
+- The plugin header now declares `Requires at least: 5.0` and `Requires PHP: 7.2`, so the
+  WordPress updater enforces them instead of the activation hook alone.
 
 ### Security
-- The Cloudflare API token is used only for the duration of setup and is **never written
-  to the database**. The provisioned client secret is saved server-side and is not sent
-  back to the browser.
-- Provisioning warns when no identity provider is configured, when `wp-config.php`
-  constants override the saved credentials, when OpenSSL is unavailable, and when the site
-  is not served over HTTPS.
+All of the following were present in 1.0.4.
+- **Primary ("Cloudflare only") mode could be bypassed.** Adding `?cfzt_callback=1` to
+  `wp-login.php` switched the redirect off while WordPress's password check still ran, so a
+  password login worked. The lost-password and registration screens were only hidden with
+  CSS. A password now never grants access in primary mode, and the lost-password, reset and
+  registration actions are refused server-side (filter `cfzt_primary_mode_blocked_actions`).
+- **The OIDC `state` was a WordPress nonce shared by every logged-out visitor** for up to
+  12 hours, and the ID token's `nonce` was never checked. An attacker could complete a login
+  in a victim's browser and leave them signed into the attacker's account (login CSRF), and
+  two people logging in at once broke each other's attempts. Every login now mints a random
+  state and nonce, binds them to the browser with a short-lived HttpOnly `SameSite=Lax`
+  cookie, and verifies the returned state and the ID token's nonce, audience and issuer.
+- **The rate limiter believed `CF-Connecting-IP`, `X-Forwarded-For` and `X-Real-IP` from
+  anyone.** A client that could reach the origin directly could rotate the header for
+  unlimited backup-code guesses, or spoof a victim's address to lock them out. Forwarding
+  headers are now trusted only when the connecting peer is in Cloudflare's published IP
+  ranges, or in ranges added with the new `cfzt_trusted_proxies` filter.
+- **Any user with the `edit_users` capability could generate backup codes for any
+  plugin-created account**, including administrators, and receive them in plaintext. The
+  handler now requires `edit_user` for the specific target.
+- **The client secret was written in plaintext into the settings page HTML and into settings
+  exports.** Encryption at rest only protected against database readers. It is no longer
+  rendered or exported.
+- **Failed-login usernames were logged unaltered and exported to CSV as-is.** Control
+  characters could forge log lines, a leading `=`, `+`, `-` or `@` would run as a formula
+  in a spreadsheet, and 1,000 junk failures evicted every real record. Identifiers are now
+  stripped of control characters, CSV cells are neutralised, and retention is 10,000 rows.
+- Unchanged from the first 2.0.0 work: the Cloudflare API token is used only for the
+  duration of setup and is **never written to the database**, and the provisioned client
+  secret is saved server-side and not sent back to the browser. Provisioning warns when no
+  identity provider is configured, when OpenSSL is unavailable, and when the site is not
+  served over HTTPS.
 
 ### Fixed
-- Settings saves no longer discard the provisioning provenance keys, which were dropped
-  because `sanitize_settings()` rebuilds the options array from scratch.
-- Declared the `$backup_codes` and `$setup` properties on `CFZT_Plugin` to avoid PHP 8.2
-  dynamic property deprecation notices.
+- **Ordinary WordPress password logins were rejected in "alongside WordPress login" mode.**
+  The hidden "Use a backup code" field is always present in the login form, and the
+  backup-code handler engaged whenever the field existed rather than when it held a value,
+  so every password login failed with "Please enter both username and backup code." Shipped in
+  1.0.4, which introduced backup codes; found while testing on a hosted sandbox.
+- **Saving the Advanced settings form silently deleted role mapping, email domain
+  restrictions and the custom redirect URLs.** The sanitizer only kept those fields when the
+  submitted form contained them, and the Advanced form does not render them. Fields a form
+  does not render are now carried over from the stored settings.
+- **Importing settings double-encrypted the client secret**, so every Cloudflare login
+  failed at the token exchange afterwards while "Test Connection" still passed. Programmatic
+  writes now go through `CFZT_Plugin::save_settings()`, which bypasses the form sanitizer,
+  and encrypted values carry a marker so they are never encrypted twice.
+- **Role mapping could never match.** The login request did not ask for the `groups` scope,
+  so Cloudflare never sent the claim the mapping reads, and existing users were never
+  re-evaluated despite the settings tooltip saying they were. Both are addressed (see
+  Changed).
+- **Backup codes were unreachable in primary mode.** The redirect to Cloudflare fired before
+  the backup-code handler ran, so the emergency path only worked when the password form was
+  available anyway. A submitted backup code now bypasses the redirect.
+- **The settings page was unreadable for anyone whose OS is in dark mode.** A
+  `prefers-color-scheme: dark` block darkened the plugin's card while WordPress core kept its
+  near-black headings and labels, since the WordPress admin has no dark theme to follow. The
+  automatic dark mode is removed from the settings page and the login-form divider.
+- The setup checklist notice rendered its item titles in white on white, because WordPress
+  relocates admin notices to just under the page's first heading, which here sits inside the
+  orange header. The notice now sets its own text colour.
+- Pressing Escape on the settings page clicked every dismiss button on the page, permanently
+  dismissing admin notices. It now only closes tooltips.
+- Declared the `$backup_codes` property on `CFZT_Plugin` to avoid a PHP 8.2 dynamic property
+  deprecation notice.
 - The OIDC callback URL is no longer duplicated across `class-cfzt-auth.php` and the admin
   template, so the URL registered with Cloudflare cannot drift from the one sent during
   authentication.
+
+### Developer
+- New filters: `cfzt_new_username`, `cfzt_sync_role_on_login`,
+  `cfzt_primary_mode_blocked_actions`, `cfzt_trusted_proxies`, `cfzt_log_retention_rows`,
+  `cfzt_redirect_uri`, `cfzt_provision_app_body` and `cfzt_token_permission_keys`. The
+  README documents each with its signature. `cfzt_default_role` and `cfzt_user_data`, which
+  the README previously listed, never existed.
+- **`CFZT_Plugin::save_settings( array $options )`** writes `cfzt_settings` without running
+  the form sanitizer. Use it for any programmatic write; `update_option()` expects plaintext
+  from an admin form.
+- `CFZT_Security::encrypt_data()` prefixes its output with `cfzt-enc:v1:` and returns
+  already-marked values unchanged; `is_encrypted()` tests for the marker. `decrypt_data()`
+  still reads unprefixed 1.x values.
+- `CFZT_Security::is_rate_limited()` / `record_failed_attempt()` replace the old
+  `check_rate_limit()`, which counted every call.
+- `CFZT_Logger::sanitize_identifier()` for anything attacker-supplied that ends up in a log.
+- The GitHub updater prefers a `.zip` release asset and, when falling back to the tag
+  zipball, renames its `<repo>-<version>/` folder to the plugin slug on install
+  (`upgrader_source_selection`). `.dev/bin/build-release` builds
+  `dist/cloudflare-zero-trust-login-<version>.zip` via `git archive`, and `.gitattributes`
+  export-ignores `.dev/` and Markdown so neither ships.
 
 ## [1.0.4] - 2025-10-23
 
@@ -250,6 +367,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **2.0.0**: SAML removed, automatic Cloudflare provisioning, six pre-existing security fixes
 - **1.0.4**: Major usability and security update - 19 new features, 5 critical security fixes
 - **1.0.3**: Code quality improvements and comprehensive logging
 - **1.0.2**: Manual update feature improvements
@@ -259,6 +377,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## Upgrade Notes
+
+### Upgrading to 2.0.0
+
+**Important**: SAML support is removed, and the login flow, rate limiter and settings
+handling have changed in ways that are visible to administrators.
+
+**What's New:**
+- Automatic Cloudflare provisioning from the setup wizard
+- Six security fixes to code that shipped in 1.0.4 (see the 2.0.0 Security section)
+- Role mapping works, and is re-applied on every login for plugin-created accounts
+
+**After Upgrading:**
+1. If the site used SAML, it is now on OIDC and (if it was in "Cloudflare only" mode) back
+   on "alongside WordPress login". Run the setup wizard, then restore the login mode.
+2. The client secret is no longer displayed. Nothing to do; leave the field blank on saves.
+3. If you rely on settings import/export, new exports omit the client secret: re-enter it
+   after importing.
+4. If a non-Cloudflare proxy or load balancer sits in front of the site, add its ranges with
+   the `cfzt_trusted_proxies` filter, otherwise all visitors share one rate-limit counter.
+5. Review role mapping: mappings configured in 1.x never matched before and will start to
+   apply at users' next logins.
+6. Generate backup codes for at least one administrator before enabling primary mode.
+
+**Breaking Changes:**
+- SAML authentication and its settings are gone.
+- New accounts are created with the full email address as their username. Existing accounts
+  are not renamed.
+- Generating backup codes requires `edit_user` on the target account, not `edit_users`.
+- `CFZT_Security::check_rate_limit()` was replaced by `is_rate_limited()` and
+  `record_failed_attempt()`.
 
 ### Upgrading to 1.0.4
 
@@ -287,13 +435,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 When upgrading, the plugin will:
 - Preserve your existing settings
-- Automatically flush rewrite rules
+- Run any pending data migrations on the first request after the update
 - Clear cached transients
 - Not delete any user data or metadata
 
 ### Important Notes
 
-- **SAML Support**: SAML authentication does not perform cryptographic signature validation and should NOT be used in production. Use OIDC for production deployments.
+- **SAML Support**: Removed in 2.0.0. Sites that used it are migrated to OIDC automatically.
 - **PHP Requirements**: Requires PHP 7.2+ and WordPress 5.0+
 - **OpenSSL Recommended**: For proper credential encryption
 
