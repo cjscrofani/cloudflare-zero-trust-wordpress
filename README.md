@@ -1,21 +1,37 @@
 # Cloudflare Zero Trust Login for WordPress
 
-A secure WordPress authentication plugin that integrates Cloudflare Zero Trust OIDC (OpenID Connect) into your WordPress login system. Supports both SaaS and Self-hosted applications with enterprise-grade security features.
+[![Latest release](https://img.shields.io/github/v/release/cjscrofani/cloudflare-zero-trust-wordpress?label=release)](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases/latest)
+[![WordPress 5.0+](https://img.shields.io/badge/WordPress-5.0%2B-21759b)](#-requirements)
+[![PHP 7.2+](https://img.shields.io/badge/PHP-7.2%2B-777bb4)](#-requirements)
+[![License GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
 
-## 🔒 A note on SAML
+Sign in to WordPress with your Cloudflare Zero Trust identity. The plugin turns a
+Cloudflare Access SaaS application into a WordPress login over OpenID Connect, and can
+create that application for you from inside wp-admin with one API token.
 
-Versions before 2.0.0 shipped an experimental SAML implementation that did not verify
-response signatures, leaving it open to tampering and replay. **It was removed in 2.0.0
-rather than left in place behind a warning.**
+<p align="center">
+  <img src=".github/screenshots/login-button.png" alt="The WordPress login form with a Login with Cloudflare Zero Trust button and a Use a backup code link" width="420">
+</p>
 
-Nothing is lost by this: a Cloudflare Access SaaS application terminates at the same place
-whether you reach it over OIDC or SAML, so OIDC — which is fully implemented and verified —
-covers every case this plugin supports. Sites that were configured for SAML are migrated to
-OIDC automatically on upgrade, and are moved off "Cloudflare only" login mode so they cannot
-be locked out mid-migration. See [Upgrading from 1.x](#-upgrading-from-1x).
+**Why this plugin**
 
-If you genuinely need SAML as a protocol, use a maintained library such as SimpleSAMLphp,
-LightSAML or OneLogin PHP SAML rather than rolling it into a login plugin.
+- **Set up in minutes.** Paste a scoped Cloudflare API token and the wizard discovers your
+  account, creates the Access application with the right redirect URL and scopes, attaches
+  an allow policy, and stores the credentials. The token is used once and never saved.
+- **Cloudflare-only or side by side.** Primary mode makes Cloudflare the only way in:
+  passwords never grant access and the reset and registration screens are refused. Secondary
+  mode adds the Cloudflare button next to the normal form.
+- **Users and roles follow your identity provider.** Accounts are created on first login
+  with the email address as the username, identity-provider groups map to WordPress roles
+  and are re-applied on every login, and email-domain restrictions are enforced every time.
+- **Built for the failure cases.** Per-browser login state, a rate limiter that only trusts
+  Cloudflare's own IP ranges, one-time backup codes for the day your identity provider is
+  down, encrypted write-only secrets, and an audit log with CSV export.
+- **Self-updating.** Installs from a GitHub release and checks that repository for updates.
+
+> **Upgrading from 1.x?** 2.0.0 removes SAML and changes how the client secret is stored.
+> Read [Upgrading from 1.x](#%EF%B8%8F-upgrading-from-1x) first. If you are still on 1.0.4 or
+> earlier, update to at least 1.0.5 today: those versions have a primary-mode bypass.
 
 ## 🚀 Features
 
@@ -257,6 +273,21 @@ attempts count towards the rate limit.
   friends unless the connecting address is a trusted proxy. Add your load balancer's ranges with
   the `cfzt_trusted_proxies` filter, otherwise every visitor shares one counter.
 
+## 🔒 A note on SAML
+
+Versions before 2.0.0 shipped an experimental SAML implementation that did not verify
+response signatures, leaving it open to tampering and replay. **It was removed in 2.0.0
+rather than left in place behind a warning.**
+
+Nothing is lost by this: a Cloudflare Access SaaS application terminates at the same place
+whether you reach it over OIDC or SAML, so OIDC — which is fully implemented and verified —
+covers every case this plugin supports. Sites that were configured for SAML are migrated to
+OIDC automatically on upgrade, and are moved off "Cloudflare only" login mode so they cannot
+be locked out mid-migration. See [Upgrading from 1.x](#-upgrading-from-1x).
+
+If you genuinely need SAML as a protocol, use a maintained library such as SimpleSAMLphp,
+LightSAML or OneLogin PHP SAML rather than rolling it into a login plugin.
+
 ## ⬆️ Upgrading from 1.x
 
 - **SAML is gone.** A site configured for SAML is switched to OIDC on the first request after
@@ -399,11 +430,12 @@ Then enable authentication logging in plugin settings.
 
 ## 📄 License
 
-GPL-2.0-or-later. See the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html).
+GPL-2.0-or-later. See [LICENSE](LICENSE).
 
 ## 🔗 Links
 
 - [Plugin Website](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress)
 - [Report Issues](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/issues)
+- [Security Policy](SECURITY.md)
 - [Cloudflare Zero Trust Documentation](https://developers.cloudflare.com/cloudflare-one/)
 - [WordPress Plugin Handbook](https://developer.wordpress.org/plugins/)

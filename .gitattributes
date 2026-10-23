@@ -74,6 +74,7 @@ gulpfile.js export-ignore
 /local export-ignore
 README.md export-ignore
 CONTRIBUTING.md export-ignore
+SECURITY.md export-ignore
 CHANGELOG.md export-ignore
 *.md export-ignore
 
