@@ -26,18 +26,20 @@ class CFZT_User_Helper {
         $options = CFZT_Plugin::get_option();
 
         // Check email domain restrictions
-        if (!empty($options['email_domain_restrictions'])) {
-            if (!self::check_email_domain($email, $options['email_domain_restrictions'])) {
-                CFZT_Logger::warning('Email domain not allowed', array(
-                    'email' => $email,
-                    'auth_method' => $auth_method
-                ));
-                return false;
-            }
+        if (!self::is_email_domain_allowed($email)) {
+            CFZT_Logger::warning('Email domain not allowed', array(
+                'email' => $email,
+                'auth_method' => $auth_method
+            ));
+            return false;
         }
 
-        // Generate username from email
-        $username = sanitize_user(current(explode('@', $email)));
+        // Use the full email address as the username so accounts are unambiguous
+        // across domains (jane@a.com and jane@b.com must not collide as "jane").
+        // Strict sanitisation mirrors what wp_insert_user() applies, so what we
+        // check for uniqueness is what WordPress will actually store.
+        $username = sanitize_user(strtolower($email), true);
+        $username = apply_filters('cfzt_new_username', $username, $email, $user_info);
         $username = self::ensure_unique_username($username);
 
         // Create the user with a random password
@@ -172,19 +174,94 @@ class CFZT_User_Helper {
     }
 
     /**
-     * Check if email domain is allowed
+     * Whether an email address passes the configured domain restrictions
+     *
+     * Applied on every Cloudflare login, not only at account creation. With
+     * no restrictions configured every domain is allowed.
+     *
+     * @since 2.0.0
      *
      * @param string $email User email address
-     * @param string $allowed_domains Newline-separated list of allowed domains
-     * @return bool True if email domain is allowed
+     * @return bool
      */
-    private static function check_email_domain(string $email, string $allowed_domains): bool {
-        $email_domain = strtolower(substr(strrchr($email, '@'), 1));
+    public static function is_email_domain_allowed(string $email): bool {
+        $options = CFZT_Plugin::get_option();
+        $allowed_domains = isset($options['email_domain_restrictions']) ? trim((string) $options['email_domain_restrictions']) : '';
 
-        $domains = array_filter(array_map('trim', explode("\n", $allowed_domains)));
-        $domains = array_map('strtolower', $domains);
+        if ('' === $allowed_domains) {
+            return true;
+        }
 
-        return in_array($email_domain, $domains);
+        $at = strrchr($email, '@');
+        $email_domain = false === $at ? '' : strtolower(substr($at, 1));
+
+        $domains = array_filter(array_map('trim', preg_split('/[\s,;]+/', $allowed_domains)));
+        $domains = array_map('strtolower', array_map(function ($domain) {
+            return ltrim($domain, '@');
+        }, $domains));
+
+        return '' !== $email_domain && in_array($email_domain, $domains, true);
+    }
+
+    /**
+     * Re-apply group-to-role mapping for an existing plugin-managed user
+     *
+     * Runs on every login so a user whose Cloudflare group changes gets the
+     * matching WordPress role without being deleted and recreated. Deliberately
+     * does nothing when no mapping is configured, when the account was not
+     * created by this plugin (hand-made administrators keep their role), or
+     * when Cloudflare sent no group claim at all, since an absent claim is not
+     * evidence that the user left every group.
+     *
+     * @since 2.0.0
+     *
+     * @param WP_User $user      Existing user.
+     * @param array   $user_info Claims from Cloudflare.
+     * @return void
+     */
+    public static function sync_role_from_claims(WP_User $user, array $user_info): void {
+        $options = CFZT_Plugin::get_option();
+
+        if (empty($options['role_mapping']) || !is_array($options['role_mapping'])) {
+            return;
+        }
+
+        if (!self::is_cfzt_user($user) || !self::has_group_claim($user_info)) {
+            return;
+        }
+
+        /**
+         * Filter whether role mapping is re-applied on every login.
+         *
+         * @since 2.0.0
+         *
+         * @param bool    $sync      Default true.
+         * @param WP_User $user      The user logging in.
+         * @param array   $user_info Claims from Cloudflare.
+         */
+        if (!apply_filters('cfzt_sync_role_on_login', true, $user, $user_info)) {
+            return;
+        }
+
+        $role = self::determine_user_role($user_info, $options);
+        if (!in_array($role, (array) $user->roles, true)) {
+            $user->set_role($role);
+            CFZT_Logger::info('Role updated from Cloudflare groups', array(
+                'user_id' => $user->ID,
+                'role'    => $role,
+            ));
+        }
+    }
+
+    /**
+     * Whether the claims carry any group information
+     *
+     * @param array $user_info Claims from Cloudflare.
+     * @return bool
+     */
+    private static function has_group_claim(array $user_info): bool {
+        return (isset($user_info['groups']) && is_array($user_info['groups']))
+            || isset($user_info['group']);
     }
 
     /**
@@ -196,6 +273,9 @@ class CFZT_User_Helper {
      */
     private static function determine_user_role(array $user_info, array $options): string {
         $default_role = isset($options['default_role']) ? $options['default_role'] : CFZT_Plugin::DEFAULT_ROLE;
+        if (!get_role($default_role)) {
+            $default_role = CFZT_Plugin::DEFAULT_ROLE;
+        }
 
         // Check if role mapping is configured
         if (empty($options['role_mapping']) || !is_array($options['role_mapping'])) {

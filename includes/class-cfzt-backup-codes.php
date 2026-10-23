@@ -190,14 +190,20 @@ class CFZT_Backup_Codes {
             wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
         }
 
-        if (!current_user_can('edit_users')) {
-            wp_send_json_error(__('You do not have permission to generate backup codes.', 'cf-zero-trust'));
-        }
-
         $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
 
         if (!$user_id || !get_user_by('id', $user_id)) {
             wp_send_json_error(__('Invalid user ID.', 'cf-zero-trust'));
+        }
+
+        // The meta capability, not the primitive: a role that may edit *some*
+        // users must not be able to mint a login for an administrator.
+        if (!current_user_can('edit_user', $user_id)) {
+            wp_send_json_error(__('You do not have permission to generate backup codes for this user.', 'cf-zero-trust'));
+        }
+
+        if (!CFZT_User_Helper::is_cfzt_user($user_id)) {
+            wp_send_json_error(__('Backup codes are only available for Cloudflare Zero Trust users.', 'cf-zero-trust'));
         }
 
         // Generate codes
@@ -218,8 +224,11 @@ class CFZT_Backup_Codes {
      * @return WP_User|WP_Error|null
      */
     public function authenticate_with_backup_code($user, $username, $password) {
-        // Only process if specifically using backup code
-        if (!isset($_POST['cfzt_backup_code'])) {
+        // Only process if a backup code was actually submitted. The field is
+        // always present in the login form (hidden until "Use a backup code" is
+        // clicked), so an isset() check here would hijack every ordinary
+        // password login and reject it with "enter both username and backup code".
+        if (empty($_POST['cfzt_backup_code']) || '' === trim((string) $_POST['cfzt_backup_code'])) {
             return $user;
         }
 
@@ -229,9 +238,9 @@ class CFZT_Backup_Codes {
         }
 
         // Rate limiting check to prevent brute force attacks
-        if (!$this->security->check_rate_limit()) {
+        if ($this->security->is_rate_limited()) {
             CFZT_Logger::warning('Rate limit exceeded for backup code authentication', array(
-                'ip' => $_SERVER['REMOTE_ADDR']
+                'ip' => $this->security->get_client_ip()
             ));
             return new WP_Error(
                 'rate_limit_exceeded',
@@ -239,8 +248,8 @@ class CFZT_Backup_Codes {
             );
         }
 
-        $backup_code = sanitize_text_field($_POST['cfzt_backup_code']);
-        $username = sanitize_text_field($_POST['log']);
+        $backup_code = sanitize_text_field(wp_unslash($_POST['cfzt_backup_code']));
+        $username = isset($_POST['log']) ? sanitize_text_field(wp_unslash($_POST['log'])) : '';
 
         if (empty($backup_code) || empty($username)) {
             return new WP_Error('empty_backup_code', __('Please enter both username and backup code.', 'cf-zero-trust'));
@@ -253,14 +262,16 @@ class CFZT_Backup_Codes {
         }
 
         if (!$user) {
+            $this->security->record_failed_attempt();
             CFZT_Logger::warning('Backup code authentication failed - user not found', array(
-                'username' => $username
+                'username' => CFZT_Logger::sanitize_identifier($username)
             ));
             return new WP_Error('invalid_backup_code', __('Invalid username or backup code.', 'cf-zero-trust'));
         }
 
         // Verify the user is a CFZT user
         if (!CFZT_User_Helper::is_cfzt_user($user)) {
+            $this->security->record_failed_attempt();
             return new WP_Error('invalid_backup_code', __('Backup codes are only available for Cloudflare Zero Trust users.', 'cf-zero-trust'));
         }
 
@@ -276,13 +287,14 @@ class CFZT_Backup_Codes {
             ));
 
             return $user;
-        } else {
-            CFZT_Logger::warning('Invalid backup code attempted', array(
-                'user_id' => $user->ID,
-                'username' => $username
-            ));
-            return new WP_Error('invalid_backup_code', __('Invalid or already used backup code.', 'cf-zero-trust'));
         }
+
+        $this->security->record_failed_attempt();
+        CFZT_Logger::warning('Invalid backup code attempted', array(
+            'user_id' => $user->ID,
+            'username' => CFZT_Logger::sanitize_identifier($username)
+        ));
+        return new WP_Error('invalid_backup_code', __('Invalid or already used backup code.', 'cf-zero-trust'));
     }
 
     /**
@@ -423,15 +435,15 @@ class CFZT_Backup_Codes {
      * Display backup code login link on login form
      */
     public function display_backup_code_link() {
-        $options = CFZT_Plugin::get_option();
-
-        // Only show if login mode is not primary (users can still use WP login)
-        if (isset($options['login_mode']) && $options['login_mode'] === 'primary') {
+        // Only accounts this plugin created can hold backup codes, so there is
+        // nothing to offer until Cloudflare login exists.
+        if (!CFZT_Auth::is_configured()) {
             return;
         }
 
+        $primary = CFZT_Auth::is_primary_mode();
         ?>
-        <p style="text-align: center; margin-top: 10px;">
+        <p class="cfzt-backup-code-toggle" style="text-align: center; margin-top: 10px;">
             <a href="#" id="cfzt-use-backup-code" style="font-size: 13px;">
                 <?php _e('Use a backup code', 'cf-zero-trust'); ?>
             </a>
@@ -449,24 +461,45 @@ class CFZT_Backup_Codes {
 
         <script>
         document.addEventListener('DOMContentLoaded', function() {
+            var primary = <?php echo $primary ? 'true' : 'false'; ?>;
             var link = document.getElementById('cfzt-use-backup-code');
             var form = document.getElementById('cfzt-backup-code-form');
             var input = document.getElementById('cfzt_backup_code');
+            var loginForm = document.getElementById('loginform');
+            var wrapper = document.querySelector('.cfzt-login-wrapper');
 
-            if (link && form) {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (form.style.display === 'none') {
-                        form.style.display = 'block';
-                        link.textContent = '<?php _e('Use regular login', 'cf-zero-trust'); ?>';
-                        input.focus();
-                    } else {
-                        form.style.display = 'none';
-                        link.textContent = '<?php _e('Use a backup code', 'cf-zero-trust'); ?>';
-                        input.value = '';
-                    }
-                });
+            if (!link || !form) {
+                return;
             }
+
+            // In primary mode the password form is hidden, so the toggle has
+            // to live outside it: move it next to the Cloudflare button and
+            // reveal the form (minus the password field) on demand.
+            if (primary && wrapper) {
+                wrapper.appendChild(link.parentNode);
+            }
+
+            function setBackupMode(on) {
+                document.body.classList.toggle('cfzt-backup-mode', on);
+                form.style.display = on ? 'block' : 'none';
+                link.textContent = on
+                    ? '<?php echo esc_js(__('Use regular login', 'cf-zero-trust')); ?>'
+                    : '<?php echo esc_js(__('Use a backup code', 'cf-zero-trust')); ?>';
+                if (on) {
+                    var userField = document.getElementById('user_login');
+                    (userField && !userField.value ? userField : input).focus();
+                } else {
+                    input.value = '';
+                }
+                if (primary && loginForm) {
+                    loginForm.style.display = on ? 'block' : 'none';
+                }
+            }
+
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                setBackupMode(form.style.display === 'none');
+            });
         });
         </script>
         <?php
