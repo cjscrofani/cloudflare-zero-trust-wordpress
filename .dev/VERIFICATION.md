@@ -125,3 +125,17 @@ the audit file's Resolution note. On the sandbox:
   Server side: `cfzt_last_login` updated, `cfzt_auth_method=oidc`, role unchanged. This
   exercised the per-browser state cookie, the state check, the ID-token nonce/audience/
   issuer check and the `groups` scope against live Cloudflare Access.
+
+## 2026-10-23 (release path)
+
+- Built `dist/cloudflare-zero-trust-login-1.0.5.zip` from tag `v1.0.5` and
+  `dist/cloudflare-zero-trust-login-2.0.0.zip` from the `release/2.0.0` merge, both with
+  `git archive --prefix=cloudflare-zero-trust-login/`. Neither contains `.dev/`, `.github/`
+  or Markdown; the 2.0.0 package carries `LICENSE`.
+- Sandbox downgraded to 1.0.5 (secret rewritten to the unprefixed 1.x form), then upgraded
+  to 2.0.0 by handing the 2.0.0 zip to the WordPress installer (`wp plugin install --force`,
+  the same upgrader code path the self-updater uses). Result: one plugin folder, plugin
+  active, `cfzt_version` 2.0.0, secret re-encoded with the `cfzt-enc:v1:` marker and still
+  decrypting, front page 200, login start redirect requesting `openid email profile groups`.
+- 1.0.5 itself was smoke-tested on the sandbox before the upgrade: per-browser state cookie
+  set, callback refused without the cookie, password login yields a password error again.
