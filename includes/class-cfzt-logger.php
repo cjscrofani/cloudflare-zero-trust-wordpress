@@ -99,18 +99,66 @@ class CFZT_Logger {
             array('%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s')
         );
 
-        // Cleanup old logs (keep last 1000 entries)
-        $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
-        if ($count > 1000) {
-            $wpdb->query(
+        // Cleanup old logs. Checked on roughly one write in fifty so a burst
+        // of failed logins does not add a COUNT(*) to every request.
+        if (0 === random_int(0, 49)) {
+            self::prune($table_name);
+        }
+    }
+
+    /**
+     * Trim the log table to the retention limit
+     *
+     * @param string $table_name Fully prefixed table name.
+     * @return void
+     */
+    private static function prune(string $table_name): void {
+        global $wpdb;
+
+        /**
+         * Filter how many log rows are kept.
+         *
+         * Failed logins from the open internet are logged too, so this is also
+         * how long real audit records survive a flood of junk.
+         *
+         * @since 2.0.0
+         *
+         * @param int $rows Default 10000.
+         */
+        $keep = max(100, (int) apply_filters('cfzt_log_retention_rows', 10000));
+
+        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        if ($count > $keep) {
+            $wpdb->query($wpdb->prepare(
                 "DELETE FROM $table_name
                 WHERE id NOT IN (
                     SELECT id FROM (
-                        SELECT id FROM $table_name ORDER BY log_time DESC LIMIT 1000
+                        SELECT id FROM $table_name ORDER BY log_time DESC, id DESC LIMIT %d
                     ) AS tmp
-                )"
-            );
+                )",
+                $keep
+            ));
         }
+    }
+
+    /**
+     * Make an attacker-supplied identifier safe to log
+     *
+     * Failed-login usernames come straight from the login form. Strip control
+     * characters so a line cannot forge extra log entries, and cap the length.
+     *
+     * @since 2.0.0
+     *
+     * @param string $identifier Raw username or email.
+     * @return string
+     */
+    public static function sanitize_identifier(string $identifier): string {
+        $identifier = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $identifier);
+        $identifier = trim((string) $identifier);
+        if (function_exists('mb_substr')) {
+            return mb_substr($identifier, 0, 190);
+        }
+        return substr($identifier, 0, 190);
     }
 
     /**
@@ -160,7 +208,7 @@ class CFZT_Logger {
      *
      * @param string $identifier User email or username
      * @param bool $success Whether authentication succeeded
-     * @param string $auth_method Authentication method (oidc/saml)
+     * @param string $auth_method Authentication method
      * @param string $reason Optional reason for failure
      */
     public static function auth_attempt(string $identifier, bool $success, string $auth_method = 'oidc', string $reason = ''): void {

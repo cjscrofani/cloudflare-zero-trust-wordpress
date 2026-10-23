@@ -11,7 +11,25 @@ if (!defined('ABSPATH')) {
 }
 
 class CFZT_Admin {
-    
+
+    /**
+     * Values the settings form may store for its enumerated options
+     */
+    const ALLOWED_LOGIN_MODES = array(CFZT_Plugin::LOGIN_MODE_PRIMARY, CFZT_Plugin::LOGIN_MODE_SECONDARY);
+    const ALLOWED_APP_TYPES   = array(CFZT_Plugin::APP_TYPE_SAAS, CFZT_Plugin::APP_TYPE_SELF_HOSTED);
+    const ALLOWED_YES_NO      = array(CFZT_Plugin::OPTION_YES, CFZT_Plugin::OPTION_NO);
+
+    /**
+     * When true, sanitize_settings() passes its input through untouched
+     *
+     * Set by CFZT_Plugin::save_settings() around programmatic writes that
+     * already hold prepared, encrypted values. See that method for why.
+     *
+     * @since 2.0.0
+     * @var bool
+     */
+    public static $raw_write = false;
+
     /**
      * Security instance
      * @var CFZT_Security
@@ -37,6 +55,8 @@ class CFZT_Admin {
         add_action('admin_notices', array($this, 'admin_notices'));
         add_action('admin_notices', array($this, 'activation_notice'));
         add_action('admin_notices', array($this, 'onboarding_checklist_notice'));
+        add_action('admin_notices', array($this, 'saml_removal_notice'));
+        add_action('wp_ajax_cfzt_dismiss_saml_notice', array($this, 'ajax_dismiss_saml_notice'));
         add_action('wp_ajax_cfzt_dismiss_activation_notice', array($this, 'dismiss_activation_notice'));
         add_action('wp_ajax_cfzt_dismiss_onboarding_checklist', array($this, 'ajax_dismiss_onboarding_checklist'));
         add_action('wp_ajax_cfzt_test_connection', array($this, 'ajax_test_connection'));
@@ -108,7 +128,6 @@ class CFZT_Admin {
         
         // Add general settings fields
         $general_fields = array(
-            'auth_method' => __('Authentication Method', 'cf-zero-trust'),
             'team_domain' => __('Team Domain', 'cf-zero-trust'),
             'login_mode' => __('Login Mode', 'cf-zero-trust'),
             'auto_create_users' => __('Auto-create Users', 'cf-zero-trust'),
@@ -151,95 +170,164 @@ class CFZT_Admin {
                 array('field' => $field)
             );
         }
-        
-        // SAML section
-        add_settings_section(
-            'cfzt_saml_section',
-            __('SAML Configuration', 'cf-zero-trust'),
-            array($this, 'saml_section_callback'),
-            'cf-zero-trust'
-        );
-        
-        $saml_fields = array(
-            'saml_sso_target_url' => __('SSO Target URL ID', 'cf-zero-trust'),
-            'saml_sp_entity_id' => __('SP Entity ID', 'cf-zero-trust'),
-            'saml_x509_cert' => __('X.509 Certificate', 'cf-zero-trust'),
-        );
-        
-        foreach ($saml_fields as $field => $label) {
-            add_settings_field(
-                'cfzt_' . $field,
-                $label,
-                array($this, 'field_callback'),
-                'cf-zero-trust',
-                'cfzt_saml_section',
-                array('field' => $field)
-            );
-        }
     }
     
     /**
-     * Sanitize settings
+     * Warn that SAML was removed and this site was migrated onto OIDC
+     *
+     * Deliberately not auto-dismissing: a site that was using SAML is not
+     * authenticating anyone until it is reconfigured, so this stays until an
+     * administrator acknowledges it.
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    public function saml_removal_notice() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $state = get_option('cfzt_saml_removed_notice');
+        if (empty($state)) {
+            return;
+        }
+
+        $settings_url = admin_url('options-general.php?page=cf-zero-trust');
+        ?>
+        <div class="notice notice-warning cfzt-saml-removed-notice is-dismissible"
+             data-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_saml_notice')); ?>">
+            <h3 style="margin-bottom: 5px;"><?php esc_html_e('SAML support has been removed', 'cf-zero-trust'); ?></h3>
+            <p>
+                <?php esc_html_e('This site was configured to authenticate with SAML. That implementation never verified response signatures, so it has been removed rather than left in place. Cloudflare Zero Trust authentication now runs over OIDC only.', 'cf-zero-trust'); ?>
+            </p>
+            <?php if ('login_restored' === $state) : ?>
+                <p>
+                    <strong><?php esc_html_e('Your login mode was changed from "Cloudflare only" back to "Cloudflare alongside WordPress login"', 'cf-zero-trust'); ?></strong>
+                    <?php esc_html_e('so that you can still reach your site while you reconfigure. Set it back once OIDC is working.', 'cf-zero-trust'); ?>
+                </p>
+            <?php endif; ?>
+            <p>
+                <a href="<?php echo esc_url($settings_url); ?>" class="button button-primary">
+                    <?php esc_html_e('Set up OIDC', 'cf-zero-trust'); ?>
+                </a>
+            </p>
+        </div>
+        <script>
+        jQuery(function($) {
+            $('.cfzt-saml-removed-notice').on('click', '.notice-dismiss', function() {
+                $.post(ajaxurl, {
+                    action: 'cfzt_dismiss_saml_notice',
+                    nonce: $('.cfzt-saml-removed-notice').data('dismiss-nonce')
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Dismiss the SAML removal notice
+     *
+     * @since 2.0.0
+     *
+     * @return void
+     */
+    public function ajax_dismiss_saml_notice() {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_saml_notice')) {
+            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Permission denied.', 'cf-zero-trust'));
+        }
+
+        delete_option('cfzt_saml_removed_notice');
+        wp_send_json_success();
+    }
+
+    /**
+     * Sanitize settings submitted from the settings forms
+     *
+     * Rebuilds the option from scratch, so anything a given form does not
+     * render has to be carried over from the stored value explicitly or it is
+     * silently lost. The Advanced form renders none of the "advanced" fields.
      *
      * @param array $input Raw input
      * @return array Sanitized settings
      */
     public function sanitize_settings($input) {
+        // Programmatic write with prepared values: nothing to do.
+        if (self::$raw_write) {
+            return is_array($input) ? $input : array();
+        }
+
         // Clear the options cache since we're updating settings
         CFZT_Plugin::clear_options_cache();
+
+        $input = is_array($input) ? $input : array();
+        $existing = get_option('cfzt_settings', array());
+        $existing = is_array($existing) ? $existing : array();
 
         $sanitized = array();
 
         // General settings
-        $sanitized['auth_method'] = sanitize_text_field($input['auth_method']);
-        $sanitized['team_domain'] = sanitize_text_field($input['team_domain']);
-        $sanitized['login_mode'] = sanitize_text_field($input['login_mode']);
-        $sanitized['auto_create_users'] = sanitize_text_field($input['auto_create_users']);
-        $sanitized['default_role'] = sanitize_text_field($input['default_role']);
-        $sanitized['enable_logging'] = sanitize_text_field($input['enable_logging']);
+        $sanitized['auth_method'] = CFZT_Plugin::AUTH_METHOD_OIDC;
+        $sanitized['team_domain'] = $this->sanitize_team_domain($this->field($input, $existing, 'team_domain'));
+        $sanitized['login_mode'] = $this->sanitize_enum($this->field($input, $existing, 'login_mode'), self::ALLOWED_LOGIN_MODES, CFZT_Plugin::LOGIN_MODE_SECONDARY);
+        $sanitized['auto_create_users'] = $this->sanitize_enum($this->field($input, $existing, 'auto_create_users'), self::ALLOWED_YES_NO, CFZT_Plugin::OPTION_YES);
+        $sanitized['enable_logging'] = $this->sanitize_enum($this->field($input, $existing, 'enable_logging'), self::ALLOWED_YES_NO, CFZT_Plugin::OPTION_NO);
+
+        $default_role = sanitize_key($this->field($input, $existing, 'default_role'));
+        $sanitized['default_role'] = get_role($default_role) ? $default_role : CFZT_Plugin::DEFAULT_ROLE;
 
         // OIDC settings
-        $sanitized['app_type'] = sanitize_text_field($input['app_type']);
-        $sanitized['client_id'] = sanitize_text_field($input['client_id']);
+        $sanitized['app_type'] = $this->sanitize_enum($this->field($input, $existing, 'app_type'), self::ALLOWED_APP_TYPES, CFZT_Plugin::APP_TYPE_SAAS);
+        $sanitized['client_id'] = sanitize_text_field($this->field($input, $existing, 'client_id'));
 
-        // Encrypt sensitive data
-        $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($input['client_secret']));
-
-        // SAML settings
-        $sanitized['saml_sso_target_url'] = sanitize_text_field($input['saml_sso_target_url']);
-        $sanitized['saml_sp_entity_id'] = sanitize_text_field($input['saml_sp_entity_id']);
-        $sanitized['saml_x509_cert'] = sanitize_textarea_field($input['saml_x509_cert']);
-
-        // Email domain restrictions
-        if (isset($input['email_domain_restrictions'])) {
-            $sanitized['email_domain_restrictions'] = sanitize_textarea_field($input['email_domain_restrictions']);
+        // Client secret. The forms never echo the stored secret back, so an
+        // empty field means "keep what I have". A value already carrying the
+        // encryption marker is stored as is; anything else is plaintext from
+        // the admin and is encrypted exactly once.
+        $secret_input = isset($input['client_secret']) ? trim((string) $input['client_secret']) : '';
+        if ('' === $secret_input || '[SET VIA CONSTANT]' === $secret_input) {
+            $sanitized['client_secret'] = isset($existing['client_secret']) ? (string) $existing['client_secret'] : '';
+        } elseif ($this->security->is_encrypted($secret_input)) {
+            $sanitized['client_secret'] = $secret_input;
+        } else {
+            $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($secret_input));
         }
 
-        // Custom redirect URLs
-        if (isset($input['redirect_after_login'])) {
-            $sanitized['redirect_after_login'] = esc_url_raw($input['redirect_after_login']);
-        }
-        if (isset($input['redirect_after_logout'])) {
-            $sanitized['redirect_after_logout'] = esc_url_raw($input['redirect_after_logout']);
+        // Advanced fields: present in the wizard form, absent from the Advanced
+        // form. Fall back to the stored value whenever the form did not send one.
+        $sanitized['email_domain_restrictions'] = isset($input['email_domain_restrictions'])
+            ? sanitize_textarea_field($input['email_domain_restrictions'])
+            : (isset($existing['email_domain_restrictions']) ? (string) $existing['email_domain_restrictions'] : '');
+
+        foreach (array('redirect_after_login', 'redirect_after_logout') as $url_key) {
+            $sanitized[$url_key] = isset($input[$url_key])
+                ? esc_url_raw(trim((string) $input[$url_key]))
+                : (isset($existing[$url_key]) ? (string) $existing[$url_key] : '');
         }
 
-        // Role mapping
+        // Role mapping. A form that renders the rows sends a sentinel even when
+        // every row was removed, which is how "clear all mappings" is told
+        // apart from "this form has no mapping fields".
         if (isset($input['role_mapping']) && is_array($input['role_mapping'])) {
+            $sanitized['role_mapping'] = $this->sanitize_role_mapping($input['role_mapping']);
+        } elseif (!empty($input['role_mapping_submitted'])) {
             $sanitized['role_mapping'] = array();
-            foreach ($input['role_mapping'] as $mapping) {
-                if (!empty($mapping['group'])) {
-                    $sanitized['role_mapping'][] = array(
-                        'group' => sanitize_text_field($mapping['group']),
-                        'role' => sanitize_text_field($mapping['role'])
-                    );
-                }
-            }
+        } elseif (isset($existing['role_mapping']) && is_array($existing['role_mapping'])) {
+            $sanitized['role_mapping'] = $this->sanitize_role_mapping($existing['role_mapping']);
+        } else {
+            $sanitized['role_mapping'] = array();
         }
 
-        // Clear rewrite rules when auth method changes
-        $current_options = get_option('cfzt_settings', array());
-        if (isset($current_options['auth_method']) && $current_options['auth_method'] !== $sanitized['auth_method']) {
-            set_transient('cfzt_flush_rewrite_rules', true);
+        // Provisioning provenance is never rendered by a form; always carry it.
+        foreach (array('provisioned_account_id', 'provisioned_app_id', 'provisioned_at') as $provenance_key) {
+            if (isset($existing[$provenance_key])) {
+                $sanitized[$provenance_key] = sanitize_text_field((string) $existing[$provenance_key]);
+            }
         }
 
         // Dismiss activation notice when plugin is configured
@@ -254,7 +342,81 @@ class CFZT_Admin {
 
         return $sanitized;
     }
-    
+
+    /**
+     * Read a scalar field from the submitted input, falling back to the stored value
+     *
+     * @param array  $input    Submitted values.
+     * @param array  $existing Stored values.
+     * @param string $key      Field name.
+     * @return string
+     */
+    private function field(array $input, array $existing, string $key): string {
+        if (isset($input[$key]) && is_scalar($input[$key])) {
+            return (string) $input[$key];
+        }
+        return isset($existing[$key]) && is_scalar($existing[$key]) ? (string) $existing[$key] : '';
+    }
+
+    /**
+     * Constrain a value to a known list
+     *
+     * @param string $value   Submitted value.
+     * @param array  $allowed Permitted values.
+     * @param string $default Used when the value is not permitted.
+     * @return string
+     */
+    private function sanitize_enum(string $value, array $allowed, string $default): string {
+        $value = sanitize_key($value);
+        return in_array($value, $allowed, true) ? $value : $default;
+    }
+
+    /**
+     * Reduce a team domain to a bare hostname
+     *
+     * Accepts what people paste (a full issuer URL, a trailing slash) and
+     * stores only the host, which is all the auth code ever uses.
+     *
+     * @param string $value Submitted value.
+     * @return string
+     */
+    private function sanitize_team_domain(string $value): string {
+        $value = strtolower(trim(sanitize_text_field($value)));
+        if ('' === $value) {
+            return '';
+        }
+        if (false !== strpos($value, '://')) {
+            $host = wp_parse_url($value, PHP_URL_HOST);
+            $value = is_string($host) ? $host : '';
+        }
+        $value = rtrim(preg_replace('#/.*$#', '', $value), '.');
+        return preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $value) ? $value : '';
+    }
+
+    /**
+     * Sanitize a list of group-to-role mappings
+     *
+     * @param array $rows Submitted or stored rows.
+     * @return array
+     */
+    private function sanitize_role_mapping(array $rows): array {
+        $clean = array();
+        foreach ($rows as $mapping) {
+            if (!is_array($mapping) || empty($mapping['group']) || empty($mapping['role'])) {
+                continue;
+            }
+            $role = sanitize_key((string) $mapping['role']);
+            if (!get_role($role)) {
+                continue;
+            }
+            $clean[] = array(
+                'group' => sanitize_text_field((string) $mapping['group']),
+                'role'  => $role,
+            );
+        }
+        return $clean;
+    }
+
     /**
      * Main section callback
      */
@@ -266,30 +428,7 @@ class CFZT_Admin {
      * OIDC section callback
      */
     public function oidc_section_callback() {
-        $options = CFZT_Plugin::get_option();
-        $display = (isset($options['auth_method']) && $options['auth_method'] === 'oauth2') ? 'block' : 'none';
-        echo '<div id="cfzt-oidc-settings" style="display: ' . $display . ';">';
-        echo '<p>' . __('Configure OIDC (OpenID Connect) specific settings.', 'cf-zero-trust') . '</p>';
-        echo '</div>';
-    }
-    
-    /**
-     * SAML section callback
-     */
-    public function saml_section_callback() {
-        $options = CFZT_Plugin::get_option();
-        $display = (isset($options['auth_method']) && $options['auth_method'] === 'saml') ? 'block' : 'none';
-        echo '<div id="cfzt-saml-settings" style="display: ' . $display . ';">';
-        echo '<p>' . __('Configure SAML specific settings.', 'cf-zero-trust') . '</p>';
-        
-        // Show metadata URL
-        $auth = new CFZT_Auth($this->security);
-        $metadata_url = $auth->get_saml_metadata_url();
-        if ($metadata_url) {
-            echo '<p><strong>' . __('SP Metadata URL:', 'cf-zero-trust') . '</strong> <code>' . esc_url($metadata_url) . '</code></p>';
-            echo '<p class="description">' . __('Provide this metadata URL to Cloudflare when configuring your SAML application.', 'cf-zero-trust') . '</p>';
-        }
-        echo '</div>';
+        echo '<p>' . esc_html__('Configure OIDC (OpenID Connect) specific settings.', 'cf-zero-trust') . '</p>';
     }
     
     /**
@@ -303,10 +442,6 @@ class CFZT_Admin {
         $value = isset($options[$field]) ? $options[$field] : '';
         
         switch ($field) {
-            case 'auth_method':
-                $this->render_auth_method_field($value);
-                break;
-                
             case 'app_type':
                 $this->render_app_type_field($value);
                 break;
@@ -339,31 +474,7 @@ class CFZT_Admin {
                 $this->render_logging_field($value);
                 break;
                 
-            case 'saml_sso_target_url':
-                $this->render_saml_sso_target_url_field($value);
-                break;
-                
-            case 'saml_sp_entity_id':
-                $this->render_saml_sp_entity_id_field($value);
-                break;
-                
-            case 'saml_x509_cert':
-                $this->render_saml_x509_cert_field($value);
-                break;
         }
-    }
-    
-    /**
-     * Render auth method field
-     */
-    private function render_auth_method_field($value) {
-        ?>
-        <select name="cfzt_settings[auth_method]" id="cfzt_auth_method">
-            <option value="oauth2" <?php selected($value, 'oauth2'); ?>><?php _e('OIDC (OpenID Connect)', 'cf-zero-trust'); ?></option>
-            <option value="saml" <?php selected($value, 'saml'); ?>><?php _e('SAML', 'cf-zero-trust'); ?></option>
-        </select>
-        <p class="description"><?php _e('Choose the authentication protocol to use with Cloudflare Zero Trust.', 'cf-zero-trust'); ?></p>
-        <?php
     }
     
     /**
@@ -413,16 +524,24 @@ class CFZT_Admin {
      */
     private function render_client_secret_field($value, $options) {
         $from_constant = defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET;
-        
+        $has_secret = !$from_constant && !empty($options['client_secret']) && '' !== $this->security->get_client_secret();
+
+        // The stored secret is never written into the page. Encryption at rest
+        // is pointless if every settings-page load hands it to any browser
+        // extension, cache or shoulder-surfer in plaintext.
         if ($from_constant) {
-            $display_value = '[SET VIA CONSTANT]';
+            $placeholder = __('Set via CFZT_CLIENT_SECRET constant', 'cf-zero-trust');
+        } elseif ($has_secret) {
+            $placeholder = __('Saved. Leave blank to keep the current secret.', 'cf-zero-trust');
         } else {
-            $display_value = isset($options['client_secret']) ? $this->security->decrypt_data($options['client_secret']) : '';
+            $placeholder = '';
         }
         ?>
-        <input type="password" name="cfzt_settings[client_secret]" value="<?php echo esc_attr($display_value); ?>" class="regular-text" <?php echo $from_constant ? 'readonly' : ''; ?> />
+        <input type="password" name="cfzt_settings[client_secret]" value="" class="regular-text" autocomplete="new-password" placeholder="<?php echo esc_attr($placeholder); ?>" <?php echo $from_constant ? 'readonly' : ''; ?> />
         <?php if ($from_constant): ?>
             <p class="description"><strong><?php _e('Value set via constant/environment variable (hidden for security)', 'cf-zero-trust'); ?></strong></p>
+        <?php elseif ($has_secret): ?>
+            <p class="description"><?php _e('A client secret is saved and encrypted. Enter a new one only to replace it.', 'cf-zero-trust'); ?></p>
         <?php else: ?>
             <p class="description"><?php _e('Client Secret from your Cloudflare Zero Trust OIDC application.', 'cf-zero-trust'); ?></p>
         <?php endif; ?>
@@ -485,45 +604,6 @@ class CFZT_Admin {
     }
     
     /**
-     * Render SAML SSO Target URL field
-     */
-    private function render_saml_sso_target_url_field($value) {
-        ?>
-        <input type="text" name="cfzt_settings[saml_sso_target_url]" value="<?php echo esc_attr($value); ?>" class="regular-text" />
-        <p class="description">
-            <?php _e('The SSO target URL ID from your Cloudflare SAML configuration.', 'cf-zero-trust'); ?><br>
-            <?php _e('This is the unique identifier in the SSO endpoint URL after /saml/', 'cf-zero-trust'); ?>
-        </p>
-        <?php
-    }
-    
-    /**
-     * Render SAML SP Entity ID field
-     */
-    private function render_saml_sp_entity_id_field($value) {
-        ?>
-        <input type="text" name="cfzt_settings[saml_sp_entity_id]" value="<?php echo esc_attr($value); ?>" class="regular-text" placeholder="<?php echo esc_attr(home_url()); ?>" />
-        <p class="description">
-            <?php _e('Service Provider Entity ID. If left empty, your site URL will be used.', 'cf-zero-trust'); ?><br>
-            <?php _e('This must match the Entity ID configured in Cloudflare.', 'cf-zero-trust'); ?>
-        </p>
-        <?php
-    }
-    
-    /**
-     * Render SAML X.509 Certificate field
-     */
-    private function render_saml_x509_cert_field($value) {
-        ?>
-        <textarea name="cfzt_settings[saml_x509_cert]" rows="10" cols="50" class="large-text code"><?php echo esc_textarea($value); ?></textarea>
-        <p class="description">
-            <?php _e('X.509 Certificate from Cloudflare for signature validation (optional but recommended).', 'cf-zero-trust'); ?><br>
-            <?php _e('Include the entire certificate including BEGIN/END lines.', 'cf-zero-trust'); ?>
-        </p>
-        <?php
-    }
-    
-    /**
      * Settings page
      */
     public function settings_page() {
@@ -548,12 +628,6 @@ class CFZT_Admin {
      * Admin notices
      */
     public function admin_notices() {
-        // Check if we need to flush rewrite rules
-        if (get_transient('cfzt_flush_rewrite_rules')) {
-            flush_rewrite_rules();
-            delete_transient('cfzt_flush_rewrite_rules');
-        }
-
         $screen = get_current_screen();
         if ($screen && $screen->id === 'settings_page_cf-zero-trust') {
             // Show success message with next steps
@@ -586,18 +660,6 @@ class CFZT_Admin {
                     <p><?php _e('OpenSSL is not available on your server. Client secrets will be stored with basic obfuscation instead of strong encryption. Consider enabling OpenSSL for better security.', 'cf-zero-trust'); ?></p>
                 </div>
                 <?php
-            }
-
-            // Check SAML requirements
-            $options = CFZT_Plugin::get_option();
-            if (isset($options['auth_method']) && $options['auth_method'] === 'saml') {
-                if (!class_exists('DOMDocument')) {
-                    ?>
-                    <div class="notice notice-error">
-                        <p><?php _e('The PHP DOM extension is required for SAML authentication but is not installed. Please install the php-xml package.', 'cf-zero-trust'); ?></p>
-                    </div>
-                    <?php
-                }
             }
         }
     }
@@ -744,7 +806,6 @@ class CFZT_Admin {
 
         // Define checklist items with actions
         $options = CFZT_Plugin::get_option();
-        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
 
         $checklist = array(
             array(
@@ -754,12 +815,8 @@ class CFZT_Admin {
                 'action_text' => __('Configure', 'cf-zero-trust')
             ),
             array(
-                'title' => $auth_method === 'saml'
-                    ? __('Configure SAML Settings', 'cf-zero-trust')
-                    : __('Configure OIDC Credentials', 'cf-zero-trust'),
-                'completed' => $auth_method === 'saml'
-                    ? !empty($options['saml_sso_target_url'])
-                    : (!empty($options['client_id']) && !empty($options['client_secret'])),
+                'title' => __('Configure OIDC Credentials', 'cf-zero-trust'),
+                'completed' => !empty($options['client_id']) && !empty($options['client_secret']),
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#auth-credentials'),
                 'action_text' => __('Configure', 'cf-zero-trust')
             ),
@@ -834,6 +891,16 @@ class CFZT_Admin {
         </div>
 
         <style>
+        /* WordPress moves admin notices to just below the first heading in .wrap,
+           which on this page is inside the orange wizard header (color: #fff).
+           Set the text colour explicitly or every checklist title inherits white
+           on a white panel. */
+        .cfzt-onboarding-notice,
+        .cfzt-onboarding-notice p,
+        .cfzt-onboarding-checklist,
+        .cfzt-onboarding-checklist span {
+            color: #1d2327;
+        }
         .cfzt-onboarding-notice {
             border-left-color: #f38020 !important;
         }
@@ -898,7 +965,6 @@ class CFZT_Admin {
 
         // Get current settings
         $options = CFZT_Plugin::get_option();
-        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : 'oauth2';
         $team_domain = isset($options['team_domain']) ? $options['team_domain'] : '';
 
         // Validate required fields
@@ -913,7 +979,7 @@ class CFZT_Admin {
         $warnings = array();
 
         // Test OIDC connection
-        if ($auth_method === 'oauth2') {
+        {
             $client_id = isset($options['client_id']) ? $options['client_id'] : '';
             $app_type = isset($options['app_type']) ? $options['app_type'] : 'saas';
 
@@ -964,26 +1030,11 @@ class CFZT_Admin {
                 }
             }
 
-            // Check client secret
-            $client_secret = isset($options['client_secret']) ? $this->security->decrypt_data($options['client_secret']) : '';
-            if (empty($client_secret)) {
-                $issues[] = __('Client Secret is not configured', 'cf-zero-trust');
+            // Check client secret decrypts to something usable
+            if ('' === $this->security->get_client_secret()) {
+                $issues[] = __('Client Secret is not configured or cannot be decrypted. Enter it again in the settings.', 'cf-zero-trust');
             }
 
-        } else {
-            // Test SAML configuration
-            $sso_target_url = isset($options['saml_sso_target_url']) ? $options['saml_sso_target_url'] : '';
-
-            if (empty($sso_target_url)) {
-                $issues[] = __('SAML SSO Target URL is not configured', 'cf-zero-trust');
-            }
-
-            // Check for DOMDocument
-            if (!class_exists('DOMDocument')) {
-                $issues[] = __('PHP DOM extension is required for SAML but is not installed', 'cf-zero-trust');
-            }
-
-            $warnings[] = __('SAML signature validation is not implemented - not recommended for production', 'cf-zero-trust');
         }
 
         // Check SSL
@@ -1047,12 +1098,6 @@ class CFZT_Admin {
             return;
         }
         
-        // Check if JS file exists, if not create it
-        $js_file = CFZT_PLUGIN_DIR . 'assets/js/cfzt-admin.js';
-        if (!file_exists($js_file)) {
-            $this->create_admin_js();
-        }
-        
         wp_enqueue_script(
             'cfzt-admin',
             CFZT_PLUGIN_URL . 'assets/js/cfzt-admin.js',
@@ -1088,8 +1133,7 @@ class CFZT_Admin {
             #cfzt-security-details {
                 display: none;
             }
-            #cfzt-oidc-settings,
-            #cfzt-saml-settings {
+            #cfzt-oidc-settings {
                 margin-top: 20px;
             }
             .cfzt-section-hidden {
@@ -1112,114 +1156,6 @@ class CFZT_Admin {
                 line-height: 1.8;
             }
         ');
-    }
-    
-    /**
-     * Create admin JavaScript file
-     */
-    private function create_admin_js() {
-        $js_content = '/**
- * Cloudflare Zero Trust Login Admin JavaScript
- */
-(function($) {
-    \'use strict\';
-
-    $(document).ready(function() {
-        // Toggle authentication method sections
-        function toggleAuthSections() {
-            var authMethod = $(\'#cfzt_auth_method\').val();
-            
-            if (authMethod === \'saml\') {
-                $(\'#cfzt-oidc-settings\').hide();
-                $(\'#cfzt-saml-settings\').show();
-                // Hide OIDC fields
-                $(\'tr\').filter(function() {
-                    return this.id && this.id.match(/^cfzt_oidc_/);
-                }).hide();
-                // Show SAML fields
-                $(\'tr\').filter(function() {
-                    return this.id && this.id.match(/^cfzt_saml_/);
-                }).show();
-            } else {
-                $(\'#cfzt-oidc-settings\').show();
-                $(\'#cfzt-saml-settings\').hide();
-                // Show OIDC fields
-                $(\'tr\').filter(function() {
-                    return this.id && this.id.match(/^cfzt_oidc_/);
-                }).show();
-                // Hide SAML fields
-                $(\'tr\').filter(function() {
-                    return this.id && this.id.match(/^cfzt_saml_/);
-                }).hide();
-            }
-        }
-        
-        // Initial toggle
-        toggleAuthSections();
-        
-        // Toggle on change
-        $(\'#cfzt_auth_method\').on(\'change\', toggleAuthSections);
-        
-        // Manual update check
-        $(\'#cfzt-check-updates\').on(\'click\', function(e) {
-            e.preventDefault();
-            
-            var $button = $(this);
-            var $status = $(\'#cfzt-update-check-status\');
-            var originalText = $button.text();
-            
-            // Disable button and show loading state
-            $button.prop(\'disabled\', true).text(cfztAdmin.checkingText);
-            $status.removeClass(\'notice-success notice-error\').html(\'<span class="spinner is-active" style="float: none; margin: 0;"></span> \' + cfztAdmin.checkingText);
-            
-            // Make AJAX request
-            $.ajax({
-                url: ajaxurl,
-                type: \'POST\',
-                data: {
-                    action: \'cfzt_check_for_updates\',
-                    nonce: cfztAdmin.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var message = response.data.message;
-                        var statusClass = response.data.hasUpdate ? \'notice-warning\' : \'notice-success\';
-                        
-                        $status.addClass(statusClass).html(message);
-                        
-                        // If update available, show update link
-                        if (response.data.hasUpdate && response.data.updateUrl) {
-                            $status.append(\' <a href="\' + response.data.updateUrl + \'">\' + cfztAdmin.updateNowText + \'</a>\');
-                        }
-                    } else {
-                        $status.addClass(\'notice-error\').html(response.data || cfztAdmin.errorText);
-                    }
-                },
-                error: function() {
-                    $status.addClass(\'notice-error\').html(cfztAdmin.errorText);
-                },
-                complete: function() {
-                    // Re-enable button
-                    $button.prop(\'disabled\', false).text(originalText);
-                }
-            });
-        });
-        
-        // Toggle security details
-        $(\'#cfzt-toggle-security\').on(\'click\', function(e) {
-            e.preventDefault();
-            $(\'#cfzt-security-details\').slideToggle();
-            $(this).text($(this).text() === cfztAdmin.showDetailsText ? cfztAdmin.hideDetailsText : cfztAdmin.showDetailsText);
-        });
-    });
-
-})(jQuery);';
-        
-        // Create directories if they don't exist
-        wp_mkdir_p(CFZT_PLUGIN_DIR . 'assets/js');
-        
-        // Write JS file
-        file_put_contents(CFZT_PLUGIN_DIR . 'assets/js/cfzt-admin.js', $js_content);
     }
     
     /**
@@ -1465,9 +1401,11 @@ class CFZT_Admin {
         // CSV headers
         fputcsv($output, array('Time', 'Level', 'Message', 'Identifier', 'Auth Method', 'Success', 'IP Address', 'User Agent'));
 
-        // CSV data
+        // CSV data. Message, identifier and user agent are attacker supplied
+        // (failed logins), so neutralise anything a spreadsheet would run as
+        // a formula.
         foreach ($logs as $log) {
-            fputcsv($output, array(
+            fputcsv($output, array_map(array($this, 'csv_safe'), array(
                 $log['log_time'],
                 $log['log_level'],
                 $log['message'],
@@ -1476,11 +1414,25 @@ class CFZT_Admin {
                 $log['success'] ? 'Yes' : 'No',
                 $log['ip_address'],
                 $log['user_agent']
-            ));
+            )));
         }
 
         fclose($output);
         exit;
+    }
+
+    /**
+     * Prevent a CSV cell from being interpreted as a spreadsheet formula
+     *
+     * @param mixed $value Cell value.
+     * @return string
+     */
+    private function csv_safe($value): string {
+        $value = (string) $value;
+        if ('' !== $value && false !== strpos("=+-@\t\r", $value[0])) {
+            return "'" . $value;
+        }
+        return $value;
     }
 
     /**
@@ -1670,16 +1622,24 @@ class CFZT_Admin {
         // Get current settings
         $options = CFZT_Plugin::get_option();
 
-        // Decrypt client secret for export
-        if (!empty($options['client_secret'])) {
-            $options['client_secret'] = $this->security->decrypt_data($options['client_secret']);
-        }
+        // The client secret never leaves the site in a download: the encrypted
+        // form is bound to this site's salts and the plaintext form would turn
+        // a settings backup into a credential. Enter it again after importing.
+        // Provenance refers to one Cloudflare account and app, so it stays too.
+        unset(
+            $options['client_secret'],
+            $options['client_secret_is_constant'],
+            $options['provisioned_account_id'],
+            $options['provisioned_app_id'],
+            $options['provisioned_at']
+        );
 
         // Add metadata
         $export_data = array(
             'version' => CFZT_PLUGIN_VERSION,
             'exported_at' => current_time('mysql'),
             'site_url' => home_url(),
+            'secret_included' => false,
             'settings' => $options
         );
 
@@ -1731,71 +1691,60 @@ class CFZT_Admin {
             }
         }
 
-        // Sanitize and encrypt as needed
+        $existing = get_option('cfzt_settings', array());
+        $existing = is_array($existing) ? $existing : array();
+
         $sanitized = array();
 
         // General settings
-        $sanitized['auth_method'] = sanitize_text_field($settings['auth_method']);
-        $sanitized['team_domain'] = sanitize_text_field($settings['team_domain']);
-        $sanitized['login_mode'] = isset($settings['login_mode']) ? sanitize_text_field($settings['login_mode']) : 'secondary';
-        $sanitized['auto_create_users'] = isset($settings['auto_create_users']) ? sanitize_text_field($settings['auto_create_users']) : 'yes';
-        $sanitized['default_role'] = isset($settings['default_role']) ? sanitize_text_field($settings['default_role']) : 'subscriber';
-        $sanitized['enable_logging'] = isset($settings['enable_logging']) ? sanitize_text_field($settings['enable_logging']) : 'no';
+        $sanitized['auth_method'] = CFZT_Plugin::AUTH_METHOD_OIDC;
+        $sanitized['team_domain'] = $this->sanitize_team_domain((string) $settings['team_domain']);
+        $sanitized['login_mode'] = $this->sanitize_enum(isset($settings['login_mode']) ? (string) $settings['login_mode'] : '', self::ALLOWED_LOGIN_MODES, CFZT_Plugin::LOGIN_MODE_SECONDARY);
+        $sanitized['auto_create_users'] = $this->sanitize_enum(isset($settings['auto_create_users']) ? (string) $settings['auto_create_users'] : '', self::ALLOWED_YES_NO, CFZT_Plugin::OPTION_YES);
+        $sanitized['enable_logging'] = $this->sanitize_enum(isset($settings['enable_logging']) ? (string) $settings['enable_logging'] : '', self::ALLOWED_YES_NO, CFZT_Plugin::OPTION_NO);
+
+        $default_role = isset($settings['default_role']) ? sanitize_key((string) $settings['default_role']) : '';
+        $sanitized['default_role'] = get_role($default_role) ? $default_role : CFZT_Plugin::DEFAULT_ROLE;
 
         // OIDC settings
-        if (isset($settings['app_type'])) {
-            $sanitized['app_type'] = sanitize_text_field($settings['app_type']);
-        }
-        if (isset($settings['client_id'])) {
-            $sanitized['client_id'] = sanitize_text_field($settings['client_id']);
-        }
-        if (isset($settings['client_secret'])) {
-            // Encrypt the client secret
-            $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($settings['client_secret']));
-        }
+        $sanitized['app_type'] = $this->sanitize_enum(isset($settings['app_type']) ? (string) $settings['app_type'] : '', self::ALLOWED_APP_TYPES, CFZT_Plugin::APP_TYPE_SAAS);
+        $sanitized['client_id'] = isset($settings['client_id']) ? sanitize_text_field((string) $settings['client_id']) : '';
 
-        // SAML settings
-        if (isset($settings['saml_sso_target_url'])) {
-            $sanitized['saml_sso_target_url'] = sanitize_text_field($settings['saml_sso_target_url']);
-        }
-        if (isset($settings['saml_sp_entity_id'])) {
-            $sanitized['saml_sp_entity_id'] = sanitize_text_field($settings['saml_sp_entity_id']);
-        }
-        if (isset($settings['saml_x509_cert'])) {
-            $sanitized['saml_x509_cert'] = sanitize_textarea_field($settings['saml_x509_cert']);
+        // Client secret. Exports made by 2.0.0+ do not contain one; older
+        // exports carry it in plaintext. Encrypt once here and write with the
+        // sanitizer bypassed, so it is never encrypted a second time.
+        $secret_restored = false;
+        if (!empty($settings['client_secret']) && is_string($settings['client_secret'])) {
+            $sanitized['client_secret'] = $this->security->encrypt_data(sanitize_text_field($settings['client_secret']));
+            $secret_restored = true;
+        } else {
+            $sanitized['client_secret'] = isset($existing['client_secret']) ? (string) $existing['client_secret'] : '';
         }
 
         // Role mapping (with proper sanitization)
-        if (isset($settings['role_mapping']) && is_array($settings['role_mapping'])) {
-            $sanitized['role_mapping'] = array();
-            foreach ($settings['role_mapping'] as $mapping) {
-                if (is_array($mapping) && !empty($mapping['group']) && !empty($mapping['role'])) {
-                    $sanitized['role_mapping'][] = array(
-                        'group' => sanitize_text_field($mapping['group']),
-                        'role' => sanitize_text_field($mapping['role'])
-                    );
-                }
+        $sanitized['role_mapping'] = isset($settings['role_mapping']) && is_array($settings['role_mapping'])
+            ? $this->sanitize_role_mapping($settings['role_mapping'])
+            : array();
+
+        // Email domain restrictions
+        $sanitized['email_domain_restrictions'] = isset($settings['email_domain_restrictions'])
+            ? sanitize_textarea_field((string) $settings['email_domain_restrictions'])
+            : '';
+
+        // Custom redirect URLs
+        foreach (array('redirect_after_login', 'redirect_after_logout') as $url_key) {
+            $sanitized[$url_key] = isset($settings[$url_key]) ? esc_url_raw((string) $settings[$url_key]) : '';
+        }
+
+        // Provenance belongs to this site's Cloudflare app, not the import.
+        foreach (array('provisioned_account_id', 'provisioned_app_id', 'provisioned_at') as $provenance_key) {
+            if (isset($existing[$provenance_key])) {
+                $sanitized[$provenance_key] = $existing[$provenance_key];
             }
         }
 
-        // Email domain restrictions
-        if (isset($settings['email_domain_restrictions'])) {
-            $sanitized['email_domain_restrictions'] = sanitize_textarea_field($settings['email_domain_restrictions']);
-        }
-
-        // Custom redirect URLs
-        if (isset($settings['redirect_after_login'])) {
-            $sanitized['redirect_after_login'] = esc_url_raw($settings['redirect_after_login']);
-        }
-        if (isset($settings['redirect_after_logout'])) {
-            $sanitized['redirect_after_logout'] = esc_url_raw($settings['redirect_after_logout']);
-        }
-
-        // Save settings
-        update_option('cfzt_settings', $sanitized);
-
-        // Clear options cache
-        CFZT_Plugin::clear_options_cache();
+        // Save settings (bypassing the form sanitizer, see CFZT_Plugin::save_settings)
+        CFZT_Plugin::save_settings($sanitized);
 
         // Log the import
         CFZT_Logger::info('Settings imported', array(
@@ -1803,6 +1752,10 @@ class CFZT_Admin {
             'from_version' => isset($import_data['version']) ? $import_data['version'] : 'unknown',
             'from_site' => isset($import_data['site_url']) ? $import_data['site_url'] : 'unknown'
         ));
+
+        if (!$secret_restored && '' === $sanitized['client_secret']) {
+            wp_send_json_success(__('Settings imported. This export did not include a client secret, so enter it in the OIDC settings before testing login.', 'cf-zero-trust'));
+        }
 
         wp_send_json_success(__('Settings imported successfully!', 'cf-zero-trust'));
     }

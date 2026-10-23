@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Local test environment control script.
+#
+#   .dev/bin/dev up              start WordPress and install it
+#   .dev/bin/dev down            stop (keeps data)
+#   .dev/bin/dev destroy         stop and delete all data
+#   .dev/bin/dev wp <args>       run WP-CLI
+#   .dev/bin/dev reset           wipe the plugin's settings back to fresh-install
+#   .dev/bin/dev seed-saml       fake a pre-2.0.0 SAML install, to test migration
+#   .dev/bin/dev state           print the plugin's current stored settings
+#   .dev/bin/dev logs [service]  tail logs
+#   .dev/bin/dev tunnel          start the cloudflared tunnel (needs TUNNEL_TOKEN)
+set -euo pipefail
+
+DEV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$DEV_DIR"
+
+[ -f .env ] && set -a && . ./.env && set +a
+
+: "${DEV_DOMAIN:=cfzt.local}"
+: "${SITE_URL:=https://${DEV_DOMAIN}}"
+: "${ADMIN_USER:=admin}"
+: "${ADMIN_PASS:=admin}"
+: "${ADMIN_EMAIL:=admin@example.test}"
+export DEV_DOMAIN SITE_URL
+
+dc() { docker compose "$@"; }
+# The wordpress:cli entrypoint execs "$@", so "wp" must be passed explicitly.
+wp() { dc run --rm -T wpcli wp "$@"; }
+
+# WP-CLI needs the volume populated by the wordpress image's entrypoint.
+wait_for_wp() {
+  printf 'waiting for WordPress files'
+  for _ in $(seq 1 60); do
+    if dc exec -T wordpress test -f /var/www/html/wp-settings.php 2>/dev/null; then
+      echo " ok"; return 0
+    fi
+    printf '.'; sleep 2
+  done
+  echo; echo "WordPress files never appeared. Try: .dev/bin/dev logs wordpress" >&2
+  return 1
+}
+
+cmd_up() {
+  dc up -d db wordpress
+  wait_for_wp
+
+  if wp core is-installed >/dev/null 2>&1; then
+    echo "WordPress already installed."
+  else
+    echo "Installing WordPress..."
+    wp core install \
+      --url="$SITE_URL" \
+      --title="CFZT Test Site" \
+      --admin_user="$ADMIN_USER" \
+      --admin_password="$ADMIN_PASS" \
+      --admin_email="$ADMIN_EMAIL" \
+      --skip-email
+  fi
+
+  wp plugin activate cloudflare-zero-trust-login || {
+    echo "Plugin activation failed — see .dev/bin/dev logs wordpress" >&2
+    exit 1
+  }
+
+  cat <<EOF
+
+  Site:   $SITE_URL
+  Admin:  $SITE_URL/wp-admin/options-general.php?page=cf-zero-trust
+  Login:  $ADMIN_USER / $ADMIN_PASS
+
+  Callback URL the plugin will register with Cloudflare:
+    $SITE_URL/wp-login.php?cfzt_callback=1
+
+EOF
+}
+
+cmd_down()    { dc down; }
+cmd_destroy() { dc down -v; echo "All data removed."; }
+cmd_logs()    { dc logs -f "${1:-wordpress}"; }
+cmd_tunnel()  { dc --profile tunnel up -d cloudflared && dc logs -f cloudflared; }
+
+cmd_reset() {
+  wp option delete cfzt_settings 2>/dev/null || true
+  wp option delete cfzt_version 2>/dev/null || true
+  wp option delete cfzt_activation_notice_dismissed 2>/dev/null || true
+  wp option delete cfzt_saml_removed_notice 2>/dev/null || true
+  wp plugin deactivate cloudflare-zero-trust-login >/dev/null
+  wp plugin activate cloudflare-zero-trust-login >/dev/null
+  echo "Plugin settings reset to a fresh install."
+}
+
+# Recreates the exact state that makes the 2.0.0 migration dangerous:
+# SAML selected AND primary login mode, which disables the WordPress login
+# form. If the migration misbehaves, this site becomes unreachable.
+cmd_seed_saml() {
+  wp option update cfzt_version '1.0.4' >/dev/null
+  wp option delete cfzt_saml_removed_notice 2>/dev/null || true
+  wp option update cfzt_settings --format=json '{
+    "auth_method":"saml",
+    "app_type":"saas",
+    "team_domain":"example.cloudflareaccess.com",
+    "client_id":"",
+    "client_secret":"",
+    "login_mode":"primary",
+    "auto_create_users":"yes",
+    "default_role":"subscriber",
+    "enable_logging":"yes",
+    "saml_sso_target_url":"abc123",
+    "saml_sp_entity_id":"https://example.test",
+    "saml_x509_cert":"-----BEGIN CERTIFICATE-----FAKE-----END CERTIFICATE-----"
+  }' >/dev/null
+
+  cat <<'EOF'
+Seeded a pre-2.0.0 SAML install in primary login mode.
+
+Now load any wp-admin page and verify ALL of the following:
+  1. A "SAML support has been removed" warning appears.
+  2. It states the login mode was changed back.
+  3. auth_method is now oauth2 and login_mode is now secondary
+     -> check with: .dev/bin/dev state
+  4. The saml_* keys are gone.
+  5. /wp-login.php still shows the normal WordPress login form
+     (if it does not, the migration failed to prevent lockout).
+EOF
+}
+
+cmd_state() {
+  echo "cfzt_version: $(wp option get cfzt_version 2>/dev/null || echo '(unset)')"
+  echo "cfzt_saml_removed_notice: $(wp option get cfzt_saml_removed_notice 2>/dev/null || echo '(unset)')"
+  echo "cfzt_settings:"
+  wp option get cfzt_settings --format=json 2>/dev/null || echo "  (unset)"
+}
+
+case "${1:-}" in
+  up)         shift; cmd_up "$@" ;;
+  down)       shift; cmd_down "$@" ;;
+  destroy)    shift; cmd_destroy "$@" ;;
+  wp)         shift; wp "$@" ;;
+  reset)      shift; cmd_reset "$@" ;;
+  seed-saml)  shift; cmd_seed_saml "$@" ;;
+  state)      shift; cmd_state "$@" ;;
+  logs)       shift; cmd_logs "$@" ;;
+  tunnel)     shift; cmd_tunnel "$@" ;;
+  *)          sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+esac

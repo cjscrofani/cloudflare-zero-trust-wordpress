@@ -69,6 +69,7 @@ if (!class_exists('CFZT_GitHub_Updater')) {
             add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_update'));
             add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
             add_action('upgrader_process_complete', array($this, 'after_update'), 10, 2);
+            add_filter('upgrader_source_selection', array($this, 'rename_source_folder'), 10, 4);
             
             // Add custom update message
             add_action('in_plugin_update_message-' . plugin_basename($plugin_file), array($this, 'update_message'), 10, 2);
@@ -217,8 +218,8 @@ if (!class_exists('CFZT_GitHub_Updater')) {
                 }
             }
             
-            // Fallback to zipball URL
-            // Note: GitHub's zipball creates a folder structure that might need adjustment
+            // Fallback to the tag zipball. Its top-level folder is named
+            // "<repo>-<tag>", which rename_source_folder() corrects during install.
             return sprintf(
                 'https://github.com/%s/%s/archive/refs/tags/%s.zip',
                 $this->github_username,
@@ -227,6 +228,44 @@ if (!class_exists('CFZT_GitHub_Updater')) {
             );
         }
         
+        /**
+         * Make sure the extracted update lands in the existing plugin folder
+         *
+         * A GitHub zipball extracts to "<repository>-<version>/". Without this
+         * WordPress would install the update as a brand new plugin directory and
+         * the active one would simply vanish.
+         *
+         * @param string      $source        Path to the extracted package.
+         * @param string      $remote_source Path to the temp directory.
+         * @param WP_Upgrader $upgrader      Upgrader instance.
+         * @param array       $hook_extra    Extra arguments, including the plugin basename.
+         * @return string|WP_Error
+         */
+        public function rename_source_folder($source, $remote_source, $upgrader, $hook_extra) {
+            global $wp_filesystem;
+
+            $our_plugin = plugin_basename($this->plugin_file);
+            if (empty($hook_extra['plugin']) || $hook_extra['plugin'] !== $our_plugin) {
+                return $source;
+            }
+
+            $expected = dirname($our_plugin);
+            $current = basename(untrailingslashit($source));
+            if ($current === $expected) {
+                return $source;
+            }
+
+            $new_source = trailingslashit($remote_source) . $expected . '/';
+            if (!$wp_filesystem || !$wp_filesystem->move(untrailingslashit($source), untrailingslashit($new_source), true)) {
+                return new WP_Error(
+                    'cfzt_rename_failed',
+                    __('Could not rename the update package to the plugin folder name.', 'cf-zero-trust')
+                );
+            }
+
+            return $new_source;
+        }
+
         /**
          * Get plugin icons
          * 

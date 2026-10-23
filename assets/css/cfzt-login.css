@@ -61,13 +61,6 @@
     flex-shrink: 0;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .login .cfzt-divider span {
-        background: #1e1e1e;
-    }
-}
-
 /* Mobile responsive */
 @media screen and (max-width: 782px) {
     .cfzt-login-button {

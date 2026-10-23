@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/security/advisories/new
+    about: Report privately. Please do not open a public issue.
+  - name: Cloudflare Access documentation
+    url: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/saas-apps/generic-oidc-saas/
+    about: How the SaaS OIDC application on the Cloudflare side works.
