@@ -37,9 +37,16 @@ class CFZT_Login_UI {
             return;
         }
         
-        // Get auth URL from auth handler
-        $auth = new CFZT_Auth(new CFZT_Security());
-        $auth_url = $auth->get_auth_url();
+        // Get auth URL from auth handler. Constructing a second CFZT_Auth here
+        // would register a duplicate set of authentication hooks on every
+        // render; the start URL is static and the SAML handler builds its own.
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : CFZT_Plugin::AUTH_METHOD_OIDC;
+        if ($auth_method === CFZT_Plugin::AUTH_METHOD_SAML) {
+            $auth = new CFZT_Auth(new CFZT_Security());
+            $auth_url = $auth->get_auth_url();
+        } else {
+            $auth_url = CFZT_Auth::get_login_start_url();
+        }
         
         if (empty($auth_url)) {
             return;

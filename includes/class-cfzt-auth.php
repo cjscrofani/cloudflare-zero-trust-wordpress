@@ -41,6 +41,8 @@ class CFZT_Auth {
      * Initialize hooks
      */
     private function init_hooks() {
+        add_action('login_init', array($this, 'handle_login_start'), 5);
+        add_action('login_init', array($this, 'enforce_primary_mode_actions'), 6);
         add_action('init', array($this, 'handle_callback'));
         add_filter('authenticate', array($this, 'maybe_disable_wp_login'), 30, 3);
         add_action('wp_login', array($this, 'on_user_login'), 10, 2);
@@ -115,13 +117,98 @@ class CFZT_Auth {
         if ($auth_method === CFZT_Plugin::AUTH_METHOD_SAML && $this->saml_handler) {
             return $this->saml_handler->get_auth_url();
         } else {
-            return $this->get_oidc_auth_url();
+            return self::get_login_start_url();
         }
     }
-    
+
     /**
-     * Get OIDC authorization URL
-     * 
+     * Local URL that begins an OIDC login
+     *
+     * The Cloudflare authorization URL is built per request in
+     * handle_login_start(), because the state it carries has to be minted and
+     * bound to the browser at the moment the flow starts. Before 1.0.5 the
+     * state was a WordPress nonce shared by every logged-out visitor.
+     *
+     * @since 1.0.5
+     *
+     * @return string Empty string when the plugin is not configured.
+     */
+    public static function get_login_start_url() {
+        $options = CFZT_Plugin::get_option();
+
+        if (empty($options['team_domain']) || empty($options['client_id'])) {
+            return '';
+        }
+
+        $args = array('cfzt_action' => 'login');
+        if (!empty($_REQUEST['redirect_to'])) {
+            $redirect_to = wp_validate_redirect((string) wp_unslash($_REQUEST['redirect_to']), '');
+            if ('' !== $redirect_to) {
+                $args['redirect_to'] = $redirect_to;
+            }
+        }
+
+        return add_query_arg($args, wp_login_url());
+    }
+
+    /**
+     * Begin a login: mint state, bind it to this browser, redirect to Cloudflare
+     *
+     * @since 1.0.5
+     */
+    public function handle_login_start() {
+        if (!isset($_GET['cfzt_action']) || 'login' !== $_GET['cfzt_action']) {
+            return;
+        }
+
+        $options = CFZT_Plugin::get_option();
+        $auth_method = isset($options['auth_method']) ? $options['auth_method'] : CFZT_Plugin::AUTH_METHOD_OIDC;
+        if ($auth_method === CFZT_Plugin::AUTH_METHOD_SAML) {
+            return;
+        }
+
+        $auth_url = $this->get_oidc_auth_url();
+        if ('' === $auth_url) {
+            return;
+        }
+
+        wp_redirect($auth_url);
+        exit;
+    }
+
+    /**
+     * Refuse the password-reset and registration screens in primary mode
+     *
+     * They were only hidden with CSS, which left them fully functional for
+     * anyone who typed the URL.
+     *
+     * @since 1.0.5
+     */
+    public function enforce_primary_mode_actions() {
+        $options = CFZT_Plugin::get_option();
+        if (!isset($options['login_mode']) || 'primary' !== $options['login_mode']) {
+            return;
+        }
+
+        $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : 'login';
+        $blocked = apply_filters('cfzt_primary_mode_blocked_actions', array(
+            'lostpassword', 'retrievepassword', 'resetpass', 'rp', 'register',
+        ));
+
+        if (!in_array($action, $blocked, true)) {
+            return;
+        }
+
+        $auth_url = $this->get_auth_url();
+        if ('' !== $auth_url) {
+            wp_redirect($auth_url);
+            exit;
+        }
+    }
+
+    /**
+     * Get OIDC authorization URL for a freshly minted, browser-bound flow
+     *
      * @return string Authorization URL
      */
     private function get_oidc_auth_url() {
@@ -130,9 +217,22 @@ class CFZT_Auth {
         if (empty($options['team_domain']) || empty($options['client_id'])) {
             return '';
         }
-        
-        $state = wp_create_nonce('cfzt_auth');
-        set_transient('cfzt_auth_state_' . $state, true, 300); // 5 minutes
+
+        // Random per-attempt state, stored under a random flow id that only
+        // this browser holds (HttpOnly cookie). The callback is accepted only
+        // when the cookie's flow carries exactly this state.
+        $flow_id = bin2hex(random_bytes(16));
+        $state = bin2hex(random_bytes(16));
+        $redirect_to = !empty($_REQUEST['redirect_to'])
+            ? wp_validate_redirect((string) wp_unslash($_REQUEST['redirect_to']), '')
+            : '';
+
+        set_transient('cfzt_auth_flow_' . hash('sha256', $flow_id), array(
+            'state'       => $state,
+            'redirect_to' => $redirect_to,
+            'created'     => time(),
+        ), 600);
+        $this->set_flow_cookie($flow_id, time() + 600);
         
         // Build authorization endpoint based on app type
         $app_type = isset($options['app_type']) ? $options['app_type'] : 'self-hosted';
@@ -186,21 +286,30 @@ class CFZT_Auth {
             );
         }
 
-        // Verify state
-        $state = sanitize_text_field($_GET['state']);
-        if (!get_transient('cfzt_auth_state_' . $state)) {
+        // Verify state: the browser must present the cookie it was given when
+        // the flow began, and that flow must carry exactly this state.
+        $flow_id = isset($_COOKIE['cfzt_oidc_flow']) ? (string) $_COOKIE['cfzt_oidc_flow'] : '';
+        $flow_key = 'cfzt_auth_flow_' . hash('sha256', $flow_id);
+        $flow = preg_match('/^[a-f0-9]{32}$/', $flow_id) ? get_transient($flow_key) : false;
+        $state = (string) wp_unslash($_GET['state']);
+
+        if (!is_array($flow) || empty($flow['state']) || !hash_equals((string) $flow['state'], $state)) {
             $this->log_authentication('unknown', false, 'Invalid state parameter');
             $this->display_error(
                 __('Invalid Authentication Request', 'cf-zero-trust'),
-                __('The authentication state parameter is invalid or has expired. This usually means the login request took too long or was tampered with.', 'cf-zero-trust'),
+                __('This login did not start from this browser, or it took too long. Nothing has been changed.', 'cf-zero-trust'),
                 array(
                     __('Try logging in again from the start', 'cf-zero-trust'),
-                    __('Make sure you complete the login within 5 minutes', 'cf-zero-trust'),
-                    __('Check that your system time is correct', 'cf-zero-trust')
+                    __('Make sure you complete the login within 10 minutes', 'cf-zero-trust'),
+                    __('Make sure your browser accepts cookies from this site', 'cf-zero-trust')
                 )
             );
         }
-        delete_transient('cfzt_auth_state_' . $state);
+
+        // One-shot: the flow is consumed whether or not the exchange succeeds.
+        delete_transient($flow_key);
+        $this->set_flow_cookie('', time() - YEAR_IN_SECONDS);
+        $this->flow_redirect_to = isset($flow['redirect_to']) ? (string) $flow['redirect_to'] : '';
 
         // Exchange code for token
         $token_data = $this->exchange_code_for_token(sanitize_text_field($_GET['code']));
@@ -440,23 +549,71 @@ class CFZT_Auth {
         $options = CFZT_Plugin::get_option();
         
         if (isset($options['login_mode']) && $options['login_mode'] === 'primary') {
-            // Check if this is a cfzt callback
-            if (!isset($_GET['cfzt_callback'])) {
-                // Allow programmatic authentication
-                if (defined('DOING_AJAX') || defined('DOING_CRON') || defined('WP_CLI')) {
-                    return $user;
-                }
-                
-                // Redirect to CF Zero Trust login
-                $auth_url = $this->get_auth_url();
-                if (!empty($auth_url)) {
-                    wp_redirect($auth_url);
-                    exit;
-                }
+            // Before 1.0.5 any request carrying ?cfzt_callback=1 was exempt
+            // here, but the callback handler ignores requests without a code,
+            // so the bare parameter let core's password check run and succeed.
+            // The Cloudflare callback never goes through this filter at all
+            // (it sets the auth cookie directly), so there is nothing to exempt.
+
+            // Backup codes are this plugin's own emergency path; let the
+            // handler at priority 40 decide, without the password result
+            // leaking through.
+            if (!empty($_POST['cfzt_backup_code']) && '' !== trim((string) $_POST['cfzt_backup_code'])) {
+                return null;
+            }
+
+            // Allow programmatic authentication
+            if (defined('DOING_AJAX') || defined('DOING_CRON') || defined('WP_CLI')
+                || defined('XMLRPC_REQUEST') || defined('REST_REQUEST')) {
+                return $user;
+            }
+
+            // Redirect to CF Zero Trust login
+            $auth_url = $this->get_auth_url();
+            if (!empty($auth_url)) {
+                wp_redirect($auth_url);
+                exit;
             }
         }
         
         return $user;
+    }
+
+    /**
+     * Destination captured when the current flow began
+     * @var string
+     */
+    private $flow_redirect_to = '';
+
+    /**
+     * Set or clear the flow cookie
+     *
+     * Written by hand so SameSite is sent on every supported PHP version. Lax
+     * is required: the callback arrives as a top-level navigation from
+     * Cloudflare, which Strict would refuse to attach the cookie to.
+     *
+     * @since 1.0.5
+     *
+     * @param string $value   Cookie value, empty to clear.
+     * @param int    $expires Unix timestamp.
+     */
+    private function set_flow_cookie($value, $expires) {
+        if (headers_sent()) {
+            return;
+        }
+
+        $cookie = sprintf(
+            'cfzt_oidc_flow=%s; Expires=%s; Max-Age=%d; Path=/; HttpOnly; SameSite=Lax',
+            rawurlencode($value),
+            gmdate('D, d M Y H:i:s T', $expires),
+            max(0, $expires - time())
+        );
+
+        if (is_ssl()) {
+            $cookie .= '; Secure';
+        }
+
+        header('Set-Cookie: ' . $cookie, false);
     }
     
     /**
@@ -522,7 +679,11 @@ class CFZT_Auth {
             return $options['redirect_after_login'];
         }
 
-        // Check for redirect_to parameter (validate to prevent open redirects)
+        // Destination captured when the flow began (Cloudflare does not echo
+        // redirect_to back), then any redirect_to on the current request.
+        if ('' !== $this->flow_redirect_to) {
+            return wp_validate_redirect($this->flow_redirect_to, admin_url());
+        }
         if (isset($_REQUEST['redirect_to']) && !empty($_REQUEST['redirect_to'])) {
             $redirect = wp_validate_redirect($_REQUEST['redirect_to'], admin_url());
             return $redirect;

@@ -218,8 +218,11 @@ class CFZT_Backup_Codes {
      * @return WP_User|WP_Error|null
      */
     public function authenticate_with_backup_code($user, $username, $password) {
-        // Only process if specifically using backup code
-        if (!isset($_POST['cfzt_backup_code'])) {
+        // Only process if a backup code was actually submitted. The field is
+        // always present in the login form (hidden until "Use a backup code" is
+        // clicked), so the isset() check used before 1.0.5 hijacked every
+        // ordinary password login and rejected it.
+        if (empty($_POST['cfzt_backup_code']) || '' === trim((string) $_POST['cfzt_backup_code'])) {
             return $user;
         }
 
