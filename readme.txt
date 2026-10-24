@@ -4,7 +4,7 @@ Tags: cloudflare, zero trust, sso, oidc, login
 Requires at least: 5.0
 Tested up to: 7.1
 Requires PHP: 7.2
-Stable tag: 2.1.0
+Stable tag: 2.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -103,6 +103,10 @@ Tools > CF Zero Trust Logs. It can be filtered by level, date, method and outcom
 
 == Changelog ==
 
+= 2.1.1 =
+* Fixed the advanced settings page showing no fields in 2.1.0. The wizard, the login flow and saved settings were not affected.
+* Removed the unused `Domain Path` plugin header.
+
 = 2.1.0 =
 * Renamed to Zero Trust Login for Cloudflare, with a matching text domain, for distribution through the WordPress plugin directory. Existing installs keep their settings and folder.
 * All output is escaped and all request input is unslashed and sanitized according to the WordPress coding standards.
@@ -122,6 +126,9 @@ Tools > CF Zero Trust Logs. It can be filtered by level, date, method and outcom
 The complete changelog is in the plugin's GitHub repository.
 
 == Upgrade Notice ==
+
+= 2.1.1 =
+Fixes the blank advanced settings page in 2.1.0. No settings changes required.
 
 = 2.1.0 =
 Rename and coding-standards release ahead of WordPress.org listing. No settings changes required.

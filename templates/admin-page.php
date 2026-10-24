@@ -1029,7 +1029,7 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
             <form method="post" action="options.php" style="padding: 30px;">
                 <?php
                 settings_fields('cfzt_settings_group');
-                do_settings_sections('zero-trust-login-for-cloudflare');
+                do_settings_sections('cf-zero-trust');
                 submit_button();
                 ?>
             </form>

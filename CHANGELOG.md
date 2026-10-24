@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-24
+
 ### Fixed
+- The advanced (non-wizard) settings page rendered no fields in 2.1.0: the rename changed
+  the page slug passed to `do_settings_sections()` along with the text domain, so WordPress
+  found no registered sections. Only the Save button and the import/export panel showed. The
+  wizard, login flow and saved settings were unaffected.
 - Removed the `Domain Path` plugin header. It pointed at an empty `languages/` folder that is
   not in release packages, which the WordPress.org submission scanner flagged. Translations
   are loaded by WordPress itself, so the header served no purpose.
