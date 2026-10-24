@@ -82,8 +82,9 @@ create that application for you from inside wp-admin with one API token.
 ## 🔧 Installation
 
 ### Method 1: WordPress plugin directory
-Once the directory listing is approved, search for **Zero Trust Login for Cloudflare** under
-Plugins → Add New. Updates then arrive through WordPress.org.
+Submitted to the directory on 2026-10-24 as `zero-trust-login-for-cloudflare`; awaiting review.
+Once approved, search for **Zero Trust Login for Cloudflare** under Plugins → Add New. Updates
+then arrive through WordPress.org.
 
 ### Method 2: GitHub release
 1. Download `zero-trust-login-for-cloudflare-<version>.zip` from the [Releases page](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases)
@@ -354,6 +355,36 @@ plugin header.
   WordPress.org and, after approval, committed to SVN `trunk/` and `tags/<version>/`. It must
   not contain `class-github-updater.php` (directory guideline 8). The listing artwork lives in
   `.wordpress-org/` and goes into the SVN `assets/` directory, not the plugin.
+
+### WordPress.org
+
+The directory listing was submitted on 2026-10-24 (slug `zero-trust-login-for-cloudflare`,
+automated scan passed). Status and the "upload updated plugin" form are at
+[wordpress.org/plugins/developers/add](https://wordpress.org/plugins/developers/add/); review
+correspondence arrives by email from plugins@wordpress.org.
+
+Before every submission or SVN commit, run Plugin Check against the package layout. It is
+installed in the local test environment:
+
+```bash
+.dev/bin/dev wp plugin check zero-trust-login-for-cloudflare \
+  --exclude-directories=.dev,.github,.wordpress-org,dist \
+  --exclude-files=.gitattributes,.gitignore,README.md,CHANGELOG.md,SECURITY.md,class-github-updater.php
+```
+
+The excludes mirror what `build-release --wporg` leaves out. The expected result is zero
+findings. Three sniffs are silenced in the code with a justification next to each: the plugin's
+own log table (direct queries and an interpolated table name), the wp-login.php form and OIDC
+callback (no nonce; the OIDC `state` is the CSRF token), and a `dash.cloudflare.com` link that
+the offloading sniff mistakes for a CDN asset.
+
+After approval, SVN access arrives by email. The first commit is the contents of the `--wporg`
+zip into `trunk/` and `tags/<version>/`, and the files from `.wordpress-org/` into `assets/`.
+Keep `Stable tag` in `readme.txt` equal to the tagged version; the directory serves whatever
+that tag points at.
+
+Both channels ship from the same tag. A GitHub-only fix (for example the Domain Path header
+removed after the 2.1.0 submission) still needs a new tag before it reaches either channel.
 
 ### Project Structure
 ```

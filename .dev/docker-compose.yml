@@ -58,7 +58,7 @@ services:
       dev.orbstack.domains: ${DEV_DOMAIN:-cfzt.local}
     volumes:
       - wp:/var/www/html
-      # Writable on purpose: the plugin regenerates assets/js/cfzt-admin.js.
+      # Read-write so debug.log can be written and Plugin Check installed.
       - ../:/var/www/html/wp-content/plugins/zero-trust-login-for-cloudflare
 
   # One-shot WP-CLI runner: `.dev/bin/dev wp <args>`

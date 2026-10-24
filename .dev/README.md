@@ -101,8 +101,27 @@ A well-formed but invalid token is a useful test on its own: it exercises the
 real API round-trip and the error mapping without needing valid credentials.
 It should come back as `cfzt_api_unauthorized` with a readable message.
 
-## Note on the plugin writing to the repo
+## Plugin Check
 
-The plugin regenerates `assets/js/cfzt-admin.js` at runtime, so the bind mount
-is read-write and the container can modify that tracked file. If it shows up
-dirty in `git status` after running the env, that is why.
+Plugin Check is installed in the test site (`wp plugin install plugin-check --activate` if it
+is ever missing). Run it the way WordPress.org will see the package:
+
+```bash
+.dev/bin/dev wp plugin check zero-trust-login-for-cloudflare \
+  --exclude-directories=.dev,.github,.wordpress-org,dist \
+  --exclude-files=.gitattributes,.gitignore,README.md,CHANGELOG.md,SECURITY.md,class-github-updater.php
+```
+
+Expected: no findings. Drop the `class-github-updater.php` exclusion to see the GitHub
+package's view, which reports only the updater itself. The CSV output (`--format=csv`) is
+grouped by `FILE:` headers rather than being one flat table.
+
+The plugin is mounted at `wp-content/plugins/zero-trust-login-for-cloudflare`, which matters:
+Plugin Check derives the slug from the folder name and checks every text domain against it.
+
+## Note on the bind mount
+
+The mount is read-write so WordPress can write `debug.log` and so that
+Plugin Check can be installed next to the plugin. Since 2.0.0 the plugin
+itself no longer writes to its own folder (the on-disk JS/CSS generators were
+removed), so a dirty `git status` after running the env is not expected.
