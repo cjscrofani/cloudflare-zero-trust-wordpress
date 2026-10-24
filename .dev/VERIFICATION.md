@@ -139,3 +139,8 @@ the audit file's Resolution note. On the sandbox:
   decrypting, front page 200, login start redirect requesting `openid email profile groups`.
 - 1.0.5 itself was smoke-tested on the sandbox before the upgrade: per-browser state cookie
   set, callback refused without the cookie, password login yields a password error again.
+- Published `v1.0.5` and `v2.0.0` on GitHub (2026-10-24 00:03 UTC), each with its zip asset.
+  Then the real self-updater path on the sandbox: reinstalled 1.0.5 with a 1.x-format
+  secret, `wp plugin list --update=available` reported 2.0.0 from GitHub, `wp plugin update`
+  installed it into the same folder, plugin active, `cfzt_version` 2.0.0, secret re-encoded
+  and decrypting, login start requesting the `groups` scope.
