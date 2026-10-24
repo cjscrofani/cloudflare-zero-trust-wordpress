@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Removed the `Domain Path` plugin header. It pointed at an empty `languages/` folder that is
+  not in release packages, which the WordPress.org submission scanner flagged. Translations
+  are loaded by WordPress itself, so the header served no purpose.
+
 ## [2.1.0] - 2026-10-24
 
 ### Changed
