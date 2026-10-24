@@ -129,7 +129,7 @@ class CFZT_Auth {
      * @return void
      */
     public function handle_login_start() {
-        if (!isset($_GET['cfzt_action']) || self::START_ACTION !== $_GET['cfzt_action']) {
+        if (!isset($_GET['cfzt_action']) || self::START_ACTION !== sanitize_key(wp_unslash($_GET['cfzt_action']))) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- starts the OIDC flow; its only effect is a redirect to the identity provider
             return;
         }
 
@@ -154,7 +154,7 @@ class CFZT_Auth {
 
         $this->set_flow_cookie($flow_id, time() + self::FLOW_TTL);
 
-        wp_redirect($this->build_authorize_url($state, $nonce));
+        wp_redirect($this->build_authorize_url($state, $nonce)); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- the authorization endpoint lives on the Cloudflare team domain, which is external by design
         exit;
     }
 
@@ -191,7 +191,7 @@ class CFZT_Auth {
      * Handle the OIDC callback
      */
     public function handle_callback() {
-        if (!isset($_GET['cfzt_callback']) || !isset($_GET['code']) || !isset($_GET['state'])) {
+        if (!isset($_GET['cfzt_callback']) || !isset($_GET['code']) || !isset($_GET['state'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OIDC callback; the state parameter is the CSRF token and is verified below
             return;
         }
 
@@ -200,20 +200,20 @@ class CFZT_Auth {
         }
 
         // The browser must present the cookie it was given when the flow began.
-        $flow_id = isset($_COOKIE[self::FLOW_COOKIE]) ? (string) $_COOKIE[self::FLOW_COOKIE] : '';
+        $flow_id = isset($_COOKIE[self::FLOW_COOKIE]) ? sanitize_text_field(wp_unslash($_COOKIE[self::FLOW_COOKIE])) : '';
         $flow = preg_match('/^[a-f0-9]{32}$/', $flow_id) ? get_transient(self::flow_key($flow_id)) : false;
-        $state = (string) wp_unslash($_GET['state']);
+        $state = sanitize_text_field(wp_unslash($_GET['state'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OIDC callback; this state value is the CSRF token and is checked against the flow record
 
         if (!is_array($flow) || empty($flow['state']) || !hash_equals((string) $flow['state'], $state)) {
             $this->security->record_failed_attempt();
             $this->log_authentication('unknown', false, 'Invalid state parameter');
             $this->display_error(
-                __('Invalid Authentication Request', 'cf-zero-trust'),
-                __('This login did not start from this browser, or it took too long. Nothing has been changed.', 'cf-zero-trust'),
+                __('Invalid Authentication Request', 'zero-trust-login-for-cloudflare'),
+                __('This login did not start from this browser, or it took too long. Nothing has been changed.', 'zero-trust-login-for-cloudflare'),
                 array(
-                    __('Try logging in again from the start', 'cf-zero-trust'),
-                    __('Make sure you complete the login within 10 minutes', 'cf-zero-trust'),
-                    __('Make sure your browser accepts cookies from this site', 'cf-zero-trust'),
+                    __('Try logging in again from the start', 'zero-trust-login-for-cloudflare'),
+                    __('Make sure you complete the login within 10 minutes', 'zero-trust-login-for-cloudflare'),
+                    __('Make sure your browser accepts cookies from this site', 'zero-trust-login-for-cloudflare'),
                 )
             );
         }
@@ -223,19 +223,23 @@ class CFZT_Auth {
         $this->set_flow_cookie('', time() - YEAR_IN_SECONDS);
 
         // Exchange code for token
-        $token_data = $this->exchange_code_for_token(sanitize_text_field(wp_unslash($_GET['code'])));
+        $token_data = $this->exchange_code_for_token(sanitize_text_field(wp_unslash($_GET['code']))); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OIDC callback; the state parameter verified above is the CSRF token
 
         if (!$token_data || !isset($token_data['access_token'])) {
             $this->security->record_failed_attempt();
             $this->log_authentication('unknown', false, 'Token exchange failed');
             $this->display_error(
-                __('Token Exchange Failed', 'cf-zero-trust'),
-                __('Unable to exchange the authorization code for an access token. This indicates a configuration issue with your Cloudflare application.', 'cf-zero-trust'),
+                __('Token Exchange Failed', 'zero-trust-login-for-cloudflare'),
+                __('Unable to exchange the authorization code for an access token. This indicates a configuration issue with your Cloudflare application.', 'zero-trust-login-for-cloudflare'),
                 array(
-                    __('Verify your <strong>Client Secret</strong> in plugin settings matches Cloudflare', 'cf-zero-trust'),
-                    __('Check that your <strong>Team Domain</strong> is correct', 'cf-zero-trust'),
-                    __('Ensure the <strong>Redirect URL</strong> matches exactly in Cloudflare: <code>' . esc_html(CFZT_Plugin::get_redirect_uri()) . '</code>', 'cf-zero-trust'),
-                    __('Test your connection using the "Test Connection" button in plugin settings', 'cf-zero-trust')
+                    __('Verify your <strong>Client Secret</strong> in plugin settings matches Cloudflare', 'zero-trust-login-for-cloudflare'),
+                    __('Check that your <strong>Team Domain</strong> is correct', 'zero-trust-login-for-cloudflare'),
+                    sprintf(
+                        /* translators: %s: the redirect URL, wrapped in <code> */
+                        __('Ensure the <strong>Redirect URL</strong> matches exactly in Cloudflare: %s', 'zero-trust-login-for-cloudflare'),
+                        '<code>' . esc_html(CFZT_Plugin::get_redirect_uri()) . '</code>'
+                    ),
+                    __('Test your connection using the "Test Connection" button in plugin settings', 'zero-trust-login-for-cloudflare')
                 )
             );
         }
@@ -247,11 +251,11 @@ class CFZT_Auth {
             $this->security->record_failed_attempt();
             $this->log_authentication('unknown', false, 'ID token did not match the login request');
             $this->display_error(
-                __('Invalid Authentication Response', 'cf-zero-trust'),
-                __('Cloudflare returned a token that does not belong to this login attempt. Nothing has been changed.', 'cf-zero-trust'),
+                __('Invalid Authentication Response', 'zero-trust-login-for-cloudflare'),
+                __('Cloudflare returned a token that does not belong to this login attempt. Nothing has been changed.', 'zero-trust-login-for-cloudflare'),
                 array(
-                    __('Try logging in again from the start', 'cf-zero-trust'),
-                    __('If this keeps happening, check that the Client ID in plugin settings matches the Cloudflare application', 'cf-zero-trust'),
+                    __('Try logging in again from the start', 'zero-trust-login-for-cloudflare'),
+                    __('If this keeps happening, check that the Client ID in plugin settings matches the Cloudflare application', 'zero-trust-login-for-cloudflare'),
                 )
             );
         }
@@ -262,13 +266,13 @@ class CFZT_Auth {
         if (!$user_info) {
             $this->log_authentication('unknown', false, 'Failed to retrieve user info');
             $this->display_error(
-                __('User Information Retrieval Failed', 'cf-zero-trust'),
-                __('Successfully authenticated with Cloudflare, but unable to retrieve your user information. This suggests an issue with the Cloudflare API or your application configuration.', 'cf-zero-trust'),
+                __('User Information Retrieval Failed', 'zero-trust-login-for-cloudflare'),
+                __('Successfully authenticated with Cloudflare, but unable to retrieve your user information. This suggests an issue with the Cloudflare API or your application configuration.', 'zero-trust-login-for-cloudflare'),
                 array(
-                    __('Check your Cloudflare application status and settings', 'cf-zero-trust'),
-                    __('Verify the application type (SaaS vs Self-hosted) is correct in plugin settings', 'cf-zero-trust'),
-                    __('Ensure your Cloudflare Access policy allows access to user info', 'cf-zero-trust'),
-                    __('Check WordPress error logs for more details', 'cf-zero-trust')
+                    __('Check your Cloudflare application status and settings', 'zero-trust-login-for-cloudflare'),
+                    __('Verify the application type (SaaS vs Self-hosted) is correct in plugin settings', 'zero-trust-login-for-cloudflare'),
+                    __('Ensure your Cloudflare Access policy allows access to user info', 'zero-trust-login-for-cloudflare'),
+                    __('Check WordPress error logs for more details', 'zero-trust-login-for-cloudflare')
                 )
             );
         }
@@ -346,7 +350,7 @@ class CFZT_Auth {
         ));
 
         if (is_wp_error($response)) {
-            error_log('[CF Zero Trust] Token exchange failed: ' . $response->get_error_message());
+            CFZT_Logger::error('Token exchange failed: ' . $response->get_error_message());
             return false;
         }
 
@@ -354,14 +358,14 @@ class CFZT_Auth {
         $body = wp_remote_retrieve_body($response);
 
         if ($http_code !== 200) {
-            error_log('[CF Zero Trust] Token response error. HTTP Code: ' . $http_code . ', Body: ' . $body);
+            CFZT_Logger::error('Token response error', array('http_code' => $http_code, 'body' => $body));
             return false;
         }
 
         $token_data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log('[CF Zero Trust] Failed to parse token response: ' . json_last_error_msg());
+            CFZT_Logger::error('Failed to parse token response: ' . json_last_error_msg());
             return false;
         }
 
@@ -394,7 +398,7 @@ class CFZT_Auth {
         ));
 
         if (is_wp_error($response)) {
-            error_log('[CF Zero Trust] Failed to get user info: ' . $response->get_error_message());
+            CFZT_Logger::error('Failed to get user info: ' . $response->get_error_message());
             return false;
         }
 
@@ -402,14 +406,14 @@ class CFZT_Auth {
         $body = wp_remote_retrieve_body($response);
 
         if ($http_code !== 200) {
-            error_log('[CF Zero Trust] User info request failed. HTTP Code: ' . $http_code . ', Body: ' . $body);
+            CFZT_Logger::error('User info request failed', array('http_code' => $http_code, 'body' => $body));
             return false;
         }
 
         $user_data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log('[CF Zero Trust] Failed to parse user info JSON: ' . json_last_error_msg());
+            CFZT_Logger::error('Failed to parse user info JSON: ' . json_last_error_msg());
             return false;
         }
 
@@ -434,13 +438,13 @@ class CFZT_Auth {
         if (empty($email) || !is_email($email)) {
             $this->log_authentication('unknown', false, 'No email provided');
             $this->display_error(
-                __('Missing Email Address', 'cf-zero-trust'),
-                __('Cloudflare Zero Trust did not provide an email address for your account. An email address is required to create or match a WordPress user.', 'cf-zero-trust'),
+                __('Missing Email Address', 'zero-trust-login-for-cloudflare'),
+                __('Cloudflare Zero Trust did not provide an email address for your account. An email address is required to create or match a WordPress user.', 'zero-trust-login-for-cloudflare'),
                 array(
-                    __('Verify your Cloudflare Access policy includes email in the JWT claims', 'cf-zero-trust'),
-                    __('Check that your identity provider (IdP) is properly configured', 'cf-zero-trust'),
-                    __('Ensure your Cloudflare application is set up to pass user email information', 'cf-zero-trust'),
-                    __('Contact your Cloudflare administrator if the issue persists', 'cf-zero-trust')
+                    __('Verify your Cloudflare Access policy includes email in the JWT claims', 'zero-trust-login-for-cloudflare'),
+                    __('Check that your identity provider (IdP) is properly configured', 'zero-trust-login-for-cloudflare'),
+                    __('Ensure your Cloudflare application is set up to pass user email information', 'zero-trust-login-for-cloudflare'),
+                    __('Contact your Cloudflare administrator if the issue persists', 'zero-trust-login-for-cloudflare')
                 )
             );
         }
@@ -450,15 +454,15 @@ class CFZT_Auth {
         if (!CFZT_User_Helper::is_email_domain_allowed($email)) {
             $this->log_authentication($email, false, 'Email domain not allowed');
             $this->display_error(
-                __('Email Domain Not Allowed', 'cf-zero-trust'),
+                __('Email Domain Not Allowed', 'zero-trust-login-for-cloudflare'),
                 sprintf(
                     /* translators: %s: email address */
-                    __('%s is not in a domain this site accepts logins from.', 'cf-zero-trust'),
+                    __('%s is not in a domain this site accepts logins from.', 'zero-trust-login-for-cloudflare'),
                     '<strong>' . esc_html($email) . '</strong>'
                 ),
                 array(
-                    __('Ask your site administrator to add your email domain under Email Domain Restrictions', 'cf-zero-trust'),
-                    __('Make sure you signed in to Cloudflare with the right account', 'cf-zero-trust'),
+                    __('Ask your site administrator to add your email domain under Email Domain Restrictions', 'zero-trust-login-for-cloudflare'),
+                    __('Make sure you signed in to Cloudflare with the right account', 'zero-trust-login-for-cloudflare'),
                 )
             );
         }
@@ -495,24 +499,26 @@ class CFZT_Auth {
 
         if (!$auto_create_enabled) {
             $this->display_error(
-                __('Account Not Found', 'cf-zero-trust'),
-                sprintf(__('No WordPress account exists for %s and automatic user creation is disabled.', 'cf-zero-trust'), '<strong>' . esc_html($email) . '</strong>'),
+                __('Account Not Found', 'zero-trust-login-for-cloudflare'),
+                /* translators: %s: email address */
+                sprintf(__('No WordPress account exists for %s and automatic user creation is disabled.', 'zero-trust-login-for-cloudflare'), '<strong>' . esc_html($email) . '</strong>'),
                 array(
-                    __('Ask your site administrator to create a WordPress account for your email address', 'cf-zero-trust'),
-                    __('Or, ask your administrator to enable "Auto-create Users" in plugin settings', 'cf-zero-trust'),
-                    __('Ensure you\'re logging in with the correct Cloudflare account', 'cf-zero-trust')
+                    __('Ask your site administrator to create a WordPress account for your email address', 'zero-trust-login-for-cloudflare'),
+                    __('Or, ask your administrator to enable "Auto-create Users" in plugin settings', 'zero-trust-login-for-cloudflare'),
+                    __('Ensure you\'re logging in with the correct Cloudflare account', 'zero-trust-login-for-cloudflare')
                 )
             );
         }
 
         $this->display_error(
-            __('User Creation Failed', 'cf-zero-trust'),
-            sprintf(__('Automatic user creation is enabled, but creating an account for %s failed. This may be a permissions issue or a configuration problem.', 'cf-zero-trust'), '<strong>' . esc_html($email) . '</strong>'),
+            __('User Creation Failed', 'zero-trust-login-for-cloudflare'),
+            /* translators: %s: email address */
+            sprintf(__('Automatic user creation is enabled, but creating an account for %s failed. This may be a permissions issue or a configuration problem.', 'zero-trust-login-for-cloudflare'), '<strong>' . esc_html($email) . '</strong>'),
             array(
-                __('Check WordPress error logs for more details about the failure', 'cf-zero-trust'),
-                __('Verify the default role setting in plugin configuration is valid', 'cf-zero-trust'),
-                __('Ensure WordPress has permission to create new users', 'cf-zero-trust'),
-                __('Contact your site administrator for assistance', 'cf-zero-trust')
+                __('Check WordPress error logs for more details about the failure', 'zero-trust-login-for-cloudflare'),
+                __('Verify the default role setting in plugin configuration is valid', 'zero-trust-login-for-cloudflare'),
+                __('Ensure WordPress has permission to create new users', 'zero-trust-login-for-cloudflare'),
+                __('Contact your site administrator for assistance', 'zero-trust-login-for-cloudflare')
             )
         );
     }
@@ -539,7 +545,7 @@ class CFZT_Auth {
 
         // Backup codes are the emergency path; let the handler at 40 decide,
         // without the password result leaking through.
-        if (!empty($_POST['cfzt_backup_code']) && '' !== trim((string) $_POST['cfzt_backup_code'])) {
+        if (!empty($_POST['cfzt_backup_code']) && '' !== trim(sanitize_text_field(wp_unslash($_POST['cfzt_backup_code'])))) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- wp-login.php form submission; the core login form carries no nonce
             return null;
         }
 
@@ -573,7 +579,7 @@ class CFZT_Auth {
             return;
         }
 
-        $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : 'login';
+        $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : 'login'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only check of which wp-login.php screen is being shown
 
         /**
          * Filter the wp-login.php actions that primary mode refuses.
@@ -670,10 +676,12 @@ class CFZT_Auth {
      * @return string
      */
     private function requested_redirect_to(): string {
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- login-page parameter, only ever passed through wp_validate_redirect()
         if (empty($_REQUEST['redirect_to'])) {
             return '';
         }
-        return wp_validate_redirect((string) wp_unslash($_REQUEST['redirect_to']), '');
+        return wp_validate_redirect(esc_url_raw(wp_unslash($_REQUEST['redirect_to'])), '');
+        // phpcs:enable
     }
 
     /**
@@ -724,11 +732,11 @@ class CFZT_Auth {
      */
     private function rate_limited_error(): void {
         $this->display_error(
-            __('Rate Limit Exceeded', 'cf-zero-trust'),
-            __('Too many failed authentication attempts have been made from your IP address. This is a security measure to prevent brute force attacks.', 'cf-zero-trust'),
+            __('Rate Limit Exceeded', 'zero-trust-login-for-cloudflare'),
+            __('Too many failed authentication attempts have been made from your IP address. This is a security measure to prevent brute force attacks.', 'zero-trust-login-for-cloudflare'),
             array(
-                __('Wait 5 minutes before trying again', 'cf-zero-trust'),
-                __('If this persists, contact your site administrator', 'cf-zero-trust')
+                __('Wait 5 minutes before trying again', 'zero-trust-login-for-cloudflare'),
+                __('If this persists, contact your site administrator', 'zero-trust-login-for-cloudflare')
             ),
             429
         );
@@ -757,7 +765,7 @@ class CFZT_Auth {
         // Troubleshooting steps
         if (!empty($troubleshooting_steps)) {
             $html .= '<div style="background: #f0f6fc; border-left: 4px solid #2271b1; padding: 15px; margin: 20px 0;">';
-            $html .= '<h3 style="margin: 0 0 10px 0; font-size: 16px; color: #2271b1;">🔧 ' . esc_html__('Troubleshooting Steps:', 'cf-zero-trust') . '</h3>';
+            $html .= '<h3 style="margin: 0 0 10px 0; font-size: 16px; color: #2271b1;">🔧 ' . esc_html__('Troubleshooting Steps:', 'zero-trust-login-for-cloudflare') . '</h3>';
             $html .= '<ol style="margin: 0; padding-left: 20px;">';
             foreach ($troubleshooting_steps as $step) {
                 $html .= '<li style="margin: 8px 0; line-height: 1.5;">' . wp_kses_post($step) . '</li>';
@@ -768,14 +776,14 @@ class CFZT_Auth {
 
         // Back button
         $html .= '<p style="margin-top: 20px;">';
-        $html .= '<a href="' . esc_url(wp_login_url()) . '" style="display: inline-block; background: #2271b1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600;">← ' . esc_html__('Back to Login', 'cf-zero-trust') . '</a>';
-        $html .= ' <a href="' . esc_url(admin_url('options-general.php?page=cf-zero-trust')) . '" style="display: inline-block; background: #ddd; color: #333; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; margin-left: 10px;">' . esc_html__('Plugin Settings', 'cf-zero-trust') . '</a>';
+        $html .= '<a href="' . esc_url(wp_login_url()) . '" style="display: inline-block; background: #2271b1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600;">← ' . esc_html__('Back to Login', 'zero-trust-login-for-cloudflare') . '</a>';
+        $html .= ' <a href="' . esc_url(admin_url('options-general.php?page=cf-zero-trust')) . '" style="display: inline-block; background: #ddd; color: #333; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; margin-left: 10px;">' . esc_html__('Plugin Settings', 'zero-trust-login-for-cloudflare') . '</a>';
         $html .= '</p>';
 
         $html .= '</div>';
         $html .= '</div>';
 
-        wp_die($html, $error_title, array('response' => $response_code));
+        wp_die($html, esc_html($error_title), array('response' => $response_code)); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $html is assembled above from escaped parts only
     }
 
     /**

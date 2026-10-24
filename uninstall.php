@@ -1,6 +1,6 @@
 <?php
 /**
- * Uninstall handler for Cloudflare Zero Trust Login
+ * Uninstall handler for Zero Trust Login for Cloudflare
  *
  * @package CloudflareZeroTrustLogin
  */
@@ -9,6 +9,8 @@
 if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
 }
+
+// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.SlowDBQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter -- removes this plugin's own options, user meta and custom table
 
 // Only run if not a multisite or if network admin
 if (!is_multisite() || is_super_admin()) {
@@ -23,21 +25,21 @@ if (!is_multisite() || is_super_admin()) {
     global $wpdb;
     
     // Get all users with CF Zero Trust meta
-    $users = get_users(array(
+    $cfzt_users = get_users(array(
         'meta_key' => 'cfzt_user',
         'meta_value' => true,
         'fields' => 'ID'
     ));
     
     // Remove CF Zero Trust related user meta
-    foreach ($users as $user_id) {
-        delete_user_meta($user_id, 'cfzt_user');
-        delete_user_meta($user_id, 'cfzt_sub');
-        delete_user_meta($user_id, 'cfzt_issuer');
-        delete_user_meta($user_id, 'cfzt_auth_method');
-        delete_user_meta($user_id, 'cfzt_last_login');
-        delete_user_meta($user_id, 'cfzt_backup_codes');
-        delete_user_meta($user_id, 'cfzt_onboarding_dismissed');
+    foreach ($cfzt_users as $cfzt_user_id) {
+        delete_user_meta($cfzt_user_id, 'cfzt_user');
+        delete_user_meta($cfzt_user_id, 'cfzt_sub');
+        delete_user_meta($cfzt_user_id, 'cfzt_issuer');
+        delete_user_meta($cfzt_user_id, 'cfzt_auth_method');
+        delete_user_meta($cfzt_user_id, 'cfzt_last_login');
+        delete_user_meta($cfzt_user_id, 'cfzt_backup_codes');
+        delete_user_meta($cfzt_user_id, 'cfzt_onboarding_dismissed');
     }
 
     // Also clean up any other cfzt_* user meta that might exist
@@ -52,8 +54,8 @@ if (!is_multisite() || is_super_admin()) {
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_wp_session_cfzt_%'");
 
     // Drop logs table
-    $table_name = $wpdb->prefix . 'cfzt_logs';
-    $wpdb->query("DROP TABLE IF EXISTS $table_name");
+    $cfzt_table_name = $wpdb->prefix . 'cfzt_logs';
+    $wpdb->query("DROP TABLE IF EXISTS {$cfzt_table_name}");
 
     // Remove database version option
     delete_option('cfzt_db_version');

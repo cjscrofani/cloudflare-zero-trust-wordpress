@@ -136,8 +136,6 @@ class CFZT_Plugin {
      * Initialize hooks
      */
     private function init_hooks() {
-        // Text domain
-        add_action('init', array($this, 'load_textdomain'));
 
         // Run data migrations after an update. Activation hooks do not fire on
         // update, and admin_init does not fire on wp-login.php, so this has to
@@ -288,20 +286,13 @@ class CFZT_Plugin {
     }
     
     /**
-     * Load plugin text domain
-     */
-    public function load_textdomain() {
-        load_plugin_textdomain('cf-zero-trust', false, dirname(CFZT_PLUGIN_BASENAME) . '/languages');
-    }
-    
-    /**
      * Add settings link to plugins page
      * 
      * @param array $links Plugin action links
      * @return array Modified links
      */
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . admin_url('options-general.php?page=cf-zero-trust') . '">' . __('Settings', 'cf-zero-trust') . '</a>';
+        $settings_link = '<a href="' . admin_url('options-general.php?page=cf-zero-trust') . '">' . __('Settings', 'zero-trust-login-for-cloudflare') . '</a>';
         array_unshift($links, $settings_link);
         return $links;
     }
@@ -314,13 +305,14 @@ class CFZT_Plugin {
         if (version_compare(PHP_VERSION, '7.2', '<')) {
             deactivate_plugins(CFZT_PLUGIN_BASENAME);
             wp_die(
-                '<h1>' . __('Plugin Activation Error', 'cf-zero-trust') . '</h1>' .
+                '<h1>' . esc_html__('Plugin Activation Error', 'zero-trust-login-for-cloudflare') . '</h1>' .
                 '<p>' . sprintf(
-                    __('Cloudflare Zero Trust Login requires PHP version 7.2 or higher. You are running PHP %s.', 'cf-zero-trust'),
-                    PHP_VERSION
+                    /* translators: %s: PHP version */
+                    esc_html__('Zero Trust Login for Cloudflare requires PHP version 7.2 or higher. You are running PHP %s.', 'zero-trust-login-for-cloudflare'),
+                    esc_html(PHP_VERSION)
                 ) . '</p>' .
-                '<p><a href="' . admin_url('plugins.php') . '">' . __('Return to Plugins', 'cf-zero-trust') . '</a></p>',
-                __('Plugin Activation Error', 'cf-zero-trust'),
+                '<p><a href="' . esc_url(admin_url('plugins.php')) . '">' . esc_html__('Return to Plugins', 'zero-trust-login-for-cloudflare') . '</a></p>',
+                esc_html__('Plugin Activation Error', 'zero-trust-login-for-cloudflare'),
                 array('back_link' => true)
             );
         }
@@ -330,13 +322,14 @@ class CFZT_Plugin {
         if (version_compare($wp_version, '5.0', '<')) {
             deactivate_plugins(CFZT_PLUGIN_BASENAME);
             wp_die(
-                '<h1>' . __('Plugin Activation Error', 'cf-zero-trust') . '</h1>' .
+                '<h1>' . esc_html__('Plugin Activation Error', 'zero-trust-login-for-cloudflare') . '</h1>' .
                 '<p>' . sprintf(
-                    __('Cloudflare Zero Trust Login requires WordPress version 5.0 or higher. You are running WordPress %s.', 'cf-zero-trust'),
-                    $wp_version
+                    /* translators: %s: WordPress version */
+                    esc_html__('Zero Trust Login for Cloudflare requires WordPress version 5.0 or higher. You are running WordPress %s.', 'zero-trust-login-for-cloudflare'),
+                    esc_html($wp_version)
                 ) . '</p>' .
-                '<p><a href="' . admin_url('plugins.php') . '">' . __('Return to Plugins', 'cf-zero-trust') . '</a></p>',
-                __('Plugin Activation Error', 'cf-zero-trust'),
+                '<p><a href="' . esc_url(admin_url('plugins.php')) . '">' . esc_html__('Return to Plugins', 'zero-trust-login-for-cloudflare') . '</a></p>',
+                esc_html__('Plugin Activation Error', 'zero-trust-login-for-cloudflare'),
                 array('back_link' => true)
             );
         }
@@ -426,8 +419,10 @@ class CFZT_Plugin {
 
         // Clean up transients
         global $wpdb;
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery -- bulk removal of this plugin's own transients on deactivation
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_cfzt_%'");
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_cfzt_%'");
+        // phpcs:enable
 
         // Clear options cache
         self::clear_options_cache();
@@ -537,27 +532,27 @@ class CFZT_Plugin {
 
         $tasks = array(
             'team_domain' => array(
-                'label' => __('Team Domain configured', 'cf-zero-trust'),
+                'label' => __('Team Domain configured', 'zero-trust-login-for-cloudflare'),
                 'completed' => !empty($options['team_domain'])
             ),
             'auth_credentials' => array(
-                'label' => __('OIDC credentials configured', 'cf-zero-trust'),
+                'label' => __('OIDC credentials configured', 'zero-trust-login-for-cloudflare'),
                 'completed' => !empty($options['client_id']) && !empty($options['client_secret'])
             ),
             'login_mode' => array(
-                'label' => __('Login mode selected', 'cf-zero-trust'),
+                'label' => __('Login mode selected', 'zero-trust-login-for-cloudflare'),
                 'completed' => isset($options['login_mode'])
             ),
             'auto_create' => array(
-                'label' => __('User creation preference set', 'cf-zero-trust'),
+                'label' => __('User creation preference set', 'zero-trust-login-for-cloudflare'),
                 'completed' => isset($options['auto_create_users'])
             ),
             'default_role' => array(
-                'label' => __('Default user role set', 'cf-zero-trust'),
+                'label' => __('Default user role set', 'zero-trust-login-for-cloudflare'),
                 'completed' => !empty($options['default_role'])
             ),
             'logging' => array(
-                'label' => __('Logging preference set', 'cf-zero-trust'),
+                'label' => __('Logging preference set', 'zero-trust-login-for-cloudflare'),
                 'completed' => isset($options['enable_logging'])
             )
         );

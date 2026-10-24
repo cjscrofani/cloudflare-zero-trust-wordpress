@@ -58,7 +58,7 @@ cmd_up() {
       --skip-email
   fi
 
-  wp plugin activate cloudflare-zero-trust-login || {
+  wp plugin activate zero-trust-login-for-cloudflare || {
     echo "Plugin activation failed — see .dev/bin/dev logs wordpress" >&2
     exit 1
   }
@@ -85,8 +85,8 @@ cmd_reset() {
   wp option delete cfzt_version 2>/dev/null || true
   wp option delete cfzt_activation_notice_dismissed 2>/dev/null || true
   wp option delete cfzt_saml_removed_notice 2>/dev/null || true
-  wp plugin deactivate cloudflare-zero-trust-login >/dev/null
-  wp plugin activate cloudflare-zero-trust-login >/dev/null
+  wp plugin deactivate zero-trust-login-for-cloudflare >/dev/null
+  wp plugin activate zero-trust-login-for-cloudflare >/dev/null
   echo "Plugin settings reset to a fresh install."
 }
 

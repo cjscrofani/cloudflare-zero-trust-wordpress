@@ -186,24 +186,24 @@ class CFZT_Backup_Codes {
      */
     public function ajax_generate_backup_codes() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_backup_codes')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_backup_codes')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
 
         if (!$user_id || !get_user_by('id', $user_id)) {
-            wp_send_json_error(__('Invalid user ID.', 'cf-zero-trust'));
+            wp_send_json_error(__('Invalid user ID.', 'zero-trust-login-for-cloudflare'));
         }
 
         // The meta capability, not the primitive: a role that may edit *some*
         // users must not be able to mint a login for an administrator.
         if (!current_user_can('edit_user', $user_id)) {
-            wp_send_json_error(__('You do not have permission to generate backup codes for this user.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to generate backup codes for this user.', 'zero-trust-login-for-cloudflare'));
         }
 
         if (!CFZT_User_Helper::is_cfzt_user($user_id)) {
-            wp_send_json_error(__('Backup codes are only available for Cloudflare Zero Trust users.', 'cf-zero-trust'));
+            wp_send_json_error(__('Backup codes are only available for Cloudflare Zero Trust users.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Generate codes
@@ -228,7 +228,7 @@ class CFZT_Backup_Codes {
         // always present in the login form (hidden until "Use a backup code" is
         // clicked), so an isset() check here would hijack every ordinary
         // password login and reject it with "enter both username and backup code".
-        if (empty($_POST['cfzt_backup_code']) || '' === trim((string) $_POST['cfzt_backup_code'])) {
+        if (empty($_POST['cfzt_backup_code']) || '' === trim(sanitize_text_field(wp_unslash($_POST['cfzt_backup_code'])))) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- wp-login.php form submission; the core login form carries no nonce
             return $user;
         }
 
@@ -244,15 +244,15 @@ class CFZT_Backup_Codes {
             ));
             return new WP_Error(
                 'rate_limit_exceeded',
-                __('Too many backup code attempts. Please try again in 5 minutes.', 'cf-zero-trust')
+                __('Too many backup code attempts. Please try again in 5 minutes.', 'zero-trust-login-for-cloudflare')
             );
         }
 
-        $backup_code = sanitize_text_field(wp_unslash($_POST['cfzt_backup_code']));
-        $username = isset($_POST['log']) ? sanitize_text_field(wp_unslash($_POST['log'])) : '';
+        $backup_code = sanitize_text_field(wp_unslash($_POST['cfzt_backup_code'])); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- wp-login.php form submission; the core login form carries no nonce
+        $username = isset($_POST['log']) ? sanitize_text_field(wp_unslash($_POST['log'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- as above
 
         if (empty($backup_code) || empty($username)) {
-            return new WP_Error('empty_backup_code', __('Please enter both username and backup code.', 'cf-zero-trust'));
+            return new WP_Error('empty_backup_code', __('Please enter both username and backup code.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Get user by username or email
@@ -266,13 +266,13 @@ class CFZT_Backup_Codes {
             CFZT_Logger::warning('Backup code authentication failed - user not found', array(
                 'username' => CFZT_Logger::sanitize_identifier($username)
             ));
-            return new WP_Error('invalid_backup_code', __('Invalid username or backup code.', 'cf-zero-trust'));
+            return new WP_Error('invalid_backup_code', __('Invalid username or backup code.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Verify the user is a CFZT user
         if (!CFZT_User_Helper::is_cfzt_user($user)) {
             $this->security->record_failed_attempt();
-            return new WP_Error('invalid_backup_code', __('Backup codes are only available for Cloudflare Zero Trust users.', 'cf-zero-trust'));
+            return new WP_Error('invalid_backup_code', __('Backup codes are only available for Cloudflare Zero Trust users.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Verify and consume the code
@@ -294,7 +294,7 @@ class CFZT_Backup_Codes {
             'user_id' => $user->ID,
             'username' => CFZT_Logger::sanitize_identifier($username)
         ));
-        return new WP_Error('invalid_backup_code', __('Invalid or already used backup code.', 'cf-zero-trust'));
+        return new WP_Error('invalid_backup_code', __('Invalid or already used backup code.', 'zero-trust-login-for-cloudflare'));
     }
 
     /**
@@ -315,42 +315,42 @@ class CFZT_Backup_Codes {
 
         $remaining_count = self::get_remaining_count($user->ID);
         ?>
-        <h2><?php _e('Cloudflare Zero Trust Backup Codes', 'cf-zero-trust'); ?></h2>
+        <h2><?php esc_html_e('Cloudflare Zero Trust Backup Codes', 'zero-trust-login-for-cloudflare'); ?></h2>
         <table class="form-table" role="presentation">
             <tr>
-                <th scope="row"><?php _e('Emergency Access', 'cf-zero-trust'); ?></th>
+                <th scope="row"><?php esc_html_e('Emergency Access', 'zero-trust-login-for-cloudflare'); ?></th>
                 <td>
                     <p class="description">
-                        <?php _e('Backup codes provide emergency access if you lose access to your Cloudflare account. Each code can only be used once.', 'cf-zero-trust'); ?>
+                        <?php esc_html_e('Backup codes provide emergency access if you lose access to your Cloudflare account. Each code can only be used once.', 'zero-trust-login-for-cloudflare'); ?>
                     </p>
 
                     <?php if ($remaining_count > 0): ?>
                         <p>
-                            <strong><?php echo sprintf(_n('%d backup code remaining', '%d backup codes remaining', $remaining_count, 'cf-zero-trust'), $remaining_count); ?></strong>
+                            <strong><?php /* translators: %d: number of unused backup codes */ echo esc_html(sprintf(_n('%d backup code remaining', '%d backup codes remaining', $remaining_count, 'zero-trust-login-for-cloudflare'), $remaining_count)); ?></strong>
                         </p>
                     <?php else: ?>
                         <p style="color: #d63638;">
-                            <strong><?php _e('No backup codes available', 'cf-zero-trust'); ?></strong>
+                            <strong><?php esc_html_e('No backup codes available', 'zero-trust-login-for-cloudflare'); ?></strong>
                         </p>
                     <?php endif; ?>
 
                     <button type="button" id="cfzt-generate-backup-codes" class="button" data-user-id="<?php echo esc_attr($user->ID); ?>">
-                        <?php _e('Generate New Backup Codes', 'cf-zero-trust'); ?>
+                        <?php esc_html_e('Generate New Backup Codes', 'zero-trust-login-for-cloudflare'); ?>
                     </button>
 
                     <div id="cfzt-backup-codes-display" style="display: none; margin-top: 15px; padding: 15px; background: #f0f6fc; border: 1px solid #c3e6fc; border-radius: 4px;">
                         <p style="margin-top: 0;">
-                            <strong><?php _e('Save these codes in a secure location. They will not be shown again.', 'cf-zero-trust'); ?></strong>
+                            <strong><?php esc_html_e('Save these codes in a secure location. They will not be shown again.', 'zero-trust-login-for-cloudflare'); ?></strong>
                         </p>
                         <div id="cfzt-backup-codes-list" style="font-family: monospace; font-size: 14px; columns: 2; column-gap: 20px;">
                         </div>
                         <button type="button" id="cfzt-copy-backup-codes" class="button" style="margin-top: 10px;">
                             <span class="dashicons dashicons-clipboard" style="vertical-align: middle;"></span>
-                            <?php _e('Copy All Codes', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Copy All Codes', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                         <button type="button" id="cfzt-print-backup-codes" class="button" style="margin-top: 10px;">
                             <span class="dashicons dashicons-media-default" style="vertical-align: middle;"></span>
-                            <?php _e('Print Codes', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Print Codes', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                     </div>
                 </td>
@@ -360,16 +360,16 @@ class CFZT_Backup_Codes {
         <script>
         jQuery(document).ready(function($) {
             $('#cfzt-generate-backup-codes').on('click', function() {
-                if (!confirm('<?php _e('Generating new backup codes will invalidate any existing codes. Continue?', 'cf-zero-trust'); ?>')) {
+                if (!confirm('<?php echo esc_js(__('Generating new backup codes will invalidate any existing codes. Continue?', 'zero-trust-login-for-cloudflare')); ?>')) {
                     return;
                 }
 
                 var $button = $(this);
-                $button.prop('disabled', true).text('<?php _e('Generating...', 'cf-zero-trust'); ?>');
+                $button.prop('disabled', true).text('<?php echo esc_js(__('Generating...', 'zero-trust-login-for-cloudflare')); ?>');
 
                 $.post(ajaxurl, {
                     action: 'cfzt_generate_backup_codes',
-                    nonce: '<?php echo wp_create_nonce('cfzt_backup_codes'); ?>',
+                    nonce: '<?php echo esc_js(wp_create_nonce('cfzt_backup_codes')); ?>',
                     user_id: $button.data('user-id')
                 }, function(response) {
                     if (response.success) {
@@ -382,10 +382,10 @@ class CFZT_Backup_Codes {
                         });
 
                         $('#cfzt-backup-codes-display').slideDown();
-                        $button.text('<?php _e('Generate New Backup Codes', 'cf-zero-trust'); ?>').prop('disabled', false);
+                        $button.text('<?php echo esc_js(__('Generate New Backup Codes', 'zero-trust-login-for-cloudflare')); ?>').prop('disabled', false);
                     } else {
-                        alert('<?php _e('Error: ', 'cf-zero-trust'); ?>' + response.data);
-                        $button.prop('disabled', false).text('<?php _e('Generate New Backup Codes', 'cf-zero-trust'); ?>');
+                        alert('<?php echo esc_js(__('Error: ', 'zero-trust-login-for-cloudflare')); ?>' + response.data);
+                        $button.prop('disabled', false).text('<?php echo esc_js(__('Generate New Backup Codes', 'zero-trust-login-for-cloudflare')); ?>');
                     }
                 });
             });
@@ -399,9 +399,9 @@ class CFZT_Backup_Codes {
                 var text = codes.join('\n');
                 navigator.clipboard.writeText(text).then(function() {
                     var $button = $('#cfzt-copy-backup-codes');
-                    $button.text('<?php _e('Copied!', 'cf-zero-trust'); ?>');
+                    $button.text('<?php echo esc_js(__('Copied!', 'zero-trust-login-for-cloudflare')); ?>');
                     setTimeout(function() {
-                        $button.html('<span class="dashicons dashicons-clipboard" style="vertical-align: middle;"></span> <?php _e('Copy All Codes', 'cf-zero-trust'); ?>');
+                        $button.html('<span class="dashicons dashicons-clipboard" style="vertical-align: middle;"></span> <?php echo esc_js(__('Copy All Codes', 'zero-trust-login-for-cloudflare')); ?>');
                     }, 2000);
                 });
             });
@@ -413,12 +413,12 @@ class CFZT_Backup_Codes {
                 });
 
                 var printWindow = window.open('', '', 'width=600,height=400');
-                printWindow.document.write('<html><head><title><?php _e('Backup Codes', 'cf-zero-trust'); ?></title>');
+                printWindow.document.write('<html><head><title><?php echo esc_js(__('Backup Codes', 'zero-trust-login-for-cloudflare')); ?></title>');
                 printWindow.document.write('<style>body { font-family: Arial, sans-serif; padding: 20px; } h1 { font-size: 18px; } code { display: block; margin: 10px 0; font-size: 16px; }</style>');
                 printWindow.document.write('</head><body>');
-                printWindow.document.write('<h1><?php _e('Cloudflare Zero Trust Backup Codes', 'cf-zero-trust'); ?></h1>');
-                printWindow.document.write('<p><?php _e('User:', 'cf-zero-trust'); ?> <?php echo esc_js($user->user_login); ?></p>');
-                printWindow.document.write('<p><?php _e('Generated:', 'cf-zero-trust'); ?> ' + new Date().toLocaleString() + '</p>');
+                printWindow.document.write('<h1><?php echo esc_js(__('Cloudflare Zero Trust Backup Codes', 'zero-trust-login-for-cloudflare')); ?></h1>');
+                printWindow.document.write('<p><?php echo esc_js(__('User:', 'zero-trust-login-for-cloudflare')); ?> <?php echo esc_js($user->user_login); ?></p>');
+                printWindow.document.write('<p><?php echo esc_js(__('Generated:', 'zero-trust-login-for-cloudflare')); ?> ' + new Date().toLocaleString() + '</p>');
                 codes.forEach(function(code) {
                     printWindow.document.write('<code>' + code + '</code>');
                 });
@@ -445,17 +445,17 @@ class CFZT_Backup_Codes {
         ?>
         <p class="cfzt-backup-code-toggle" style="text-align: center; margin-top: 10px;">
             <a href="#" id="cfzt-use-backup-code" style="font-size: 13px;">
-                <?php _e('Use a backup code', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Use a backup code', 'zero-trust-login-for-cloudflare'); ?>
             </a>
         </p>
 
         <div id="cfzt-backup-code-form" style="display: none; margin-top: 10px;">
             <p style="margin-bottom: 10px;">
-                <label for="cfzt_backup_code"><?php _e('Backup Code', 'cf-zero-trust'); ?></label>
+                <label for="cfzt_backup_code"><?php esc_html_e('Backup Code', 'zero-trust-login-for-cloudflare'); ?></label>
                 <input type="text" name="cfzt_backup_code" id="cfzt_backup_code" class="input" value="" size="20" autocomplete="off" placeholder="XXXX-XXXX" />
             </p>
             <p style="font-size: 13px; color: #50575e;">
-                <?php _e('Enter one of your backup codes. Each code can only be used once.', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Enter one of your backup codes. Each code can only be used once.', 'zero-trust-login-for-cloudflare'); ?>
             </p>
         </div>
 
@@ -483,8 +483,8 @@ class CFZT_Backup_Codes {
                 document.body.classList.toggle('cfzt-backup-mode', on);
                 form.style.display = on ? 'block' : 'none';
                 link.textContent = on
-                    ? '<?php echo esc_js(__('Use regular login', 'cf-zero-trust')); ?>'
-                    : '<?php echo esc_js(__('Use a backup code', 'cf-zero-trust')); ?>';
+                    ? '<?php echo esc_js(__('Use regular login', 'zero-trust-login-for-cloudflare')); ?>'
+                    : '<?php echo esc_js(__('Use a backup code', 'zero-trust-login-for-cloudflare')); ?>';
                 if (on) {
                     var userField = document.getElementById('user_login');
                     (userField && !userField.value ? userField : input).focus();

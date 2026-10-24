@@ -227,7 +227,7 @@ class CFZT_Security {
      * @return string IP address, or an empty string when unknown.
      */
     public function get_client_ip(): string {
-        $remote_addr = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
+        $remote_addr = isset($_SERVER['REMOTE_ADDR']) ? trim(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : '';
 
         /**
          * Filter the CIDR ranges whose forwarding headers are trusted.
@@ -249,13 +249,13 @@ class CFZT_Security {
 
         $candidates = array();
         if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            $candidates[] = $_SERVER['HTTP_CF_CONNECTING_IP'];
+            $candidates[] = sanitize_text_field(wp_unslash($_SERVER['HTTP_CF_CONNECTING_IP']));
         }
         if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-            $candidates[] = $_SERVER['HTTP_X_REAL_IP'];
+            $candidates[] = sanitize_text_field(wp_unslash($_SERVER['HTTP_X_REAL_IP']));
         }
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $forwarded = explode(',', sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR'])));
             $candidates[] = $forwarded[0];
         }
 

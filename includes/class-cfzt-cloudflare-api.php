@@ -154,7 +154,7 @@ class CFZT_Cloudflare_API {
         if (!$this->has_token()) {
             return new WP_Error(
                 'cfzt_api_no_token',
-                __('No Cloudflare API token was provided.', 'cf-zero-trust')
+                __('No Cloudflare API token was provided.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -185,7 +185,7 @@ class CFZT_Cloudflare_API {
                 'cfzt_api_http_error',
                 sprintf(
                     /* translators: %s: transport level error message */
-                    __('Could not reach the Cloudflare API: %s', 'cf-zero-trust'),
+                    __('Could not reach the Cloudflare API: %s', 'zero-trust-login-for-cloudflare'),
                     $response->get_error_message()
                 )
             );
@@ -199,7 +199,7 @@ class CFZT_Cloudflare_API {
                 'cfzt_api_bad_response',
                 sprintf(
                     /* translators: %d: HTTP status code */
-                    __('Cloudflare returned an unreadable response (HTTP %d).', 'cf-zero-trust'),
+                    __('Cloudflare returned an unreadable response (HTTP %d).', 'zero-trust-login-for-cloudflare'),
                     $status
                 )
             );
@@ -240,7 +240,7 @@ class CFZT_Cloudflare_API {
             ? implode('; ', $messages)
             : sprintf(
                 /* translators: %d: HTTP status code */
-                __('HTTP %d', 'cf-zero-trust'),
+                __('HTTP %d', 'zero-trust-login-for-cloudflare'),
                 $status
             );
 
@@ -252,7 +252,7 @@ class CFZT_Cloudflare_API {
                 'cfzt_api_unauthorized',
                 sprintf(
                     /* translators: %s: error detail from Cloudflare */
-                    __('Cloudflare rejected the API token: %s. Check that you pasted the whole token and that it has not been revoked.', 'cf-zero-trust'),
+                    __('Cloudflare rejected the API token: %s. Check that you pasted the whole token and that it has not been revoked.', 'zero-trust-login-for-cloudflare'),
                     $detail
                 ),
                 array('status' => $status)
@@ -264,7 +264,7 @@ class CFZT_Cloudflare_API {
                 'cfzt_api_bad_request',
                 sprintf(
                     /* translators: %s: error detail from Cloudflare */
-                    __('Cloudflare rejected the request: %s', 'cf-zero-trust'),
+                    __('Cloudflare rejected the request: %s', 'zero-trust-login-for-cloudflare'),
                     $detail
                 ),
                 array('status' => $status)
@@ -277,7 +277,7 @@ class CFZT_Cloudflare_API {
                 'cfzt_api_forbidden',
                 sprintf(
                     /* translators: %s: error detail from Cloudflare */
-                    __('The API token is valid but does not have permission for this action: %s. It needs "Access: Apps and Policies" set to Edit.', 'cf-zero-trust'),
+                    __('The API token is valid but does not have permission for this action: %s. It needs "Access: Apps and Policies" set to Edit.', 'zero-trust-login-for-cloudflare'),
                     $detail
                 ),
                 array('status' => $status)
@@ -288,7 +288,7 @@ class CFZT_Cloudflare_API {
         if (404 === $status && false !== strpos($path, '/access/organizations')) {
             return new WP_Error(
                 'cfzt_no_zero_trust_org',
-                __('This Cloudflare account does not have a Zero Trust organization yet. Open the Zero Trust dashboard and choose a team domain, then try again.', 'cf-zero-trust'),
+                __('This Cloudflare account does not have a Zero Trust organization yet. Open the Zero Trust dashboard and choose a team domain, then try again.', 'zero-trust-login-for-cloudflare'),
                 array('status' => $status)
             );
         }
@@ -296,7 +296,7 @@ class CFZT_Cloudflare_API {
         if (429 === $status) {
             return new WP_Error(
                 'cfzt_api_rate_limited',
-                __('Cloudflare is rate limiting these requests. Wait a minute and try again.', 'cf-zero-trust'),
+                __('Cloudflare is rate limiting these requests. Wait a minute and try again.', 'zero-trust-login-for-cloudflare'),
                 array('status' => $status)
             );
         }
@@ -305,7 +305,7 @@ class CFZT_Cloudflare_API {
             'cfzt_api_error',
             sprintf(
                 /* translators: %s: error detail from Cloudflare */
-                __('Cloudflare API error: %s', 'cf-zero-trust'),
+                __('Cloudflare API error: %s', 'zero-trust-login-for-cloudflare'),
                 $detail
             ),
             array('status' => $status)

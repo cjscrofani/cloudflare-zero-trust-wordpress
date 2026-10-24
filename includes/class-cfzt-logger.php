@@ -47,8 +47,10 @@ class CFZT_Logger {
             $log_message .= ' | Context: ' . json_encode($context);
         }
 
-        // Log to error_log
-        error_log($log_message);
+        // Mirror to the PHP error log only when the site is in debug mode.
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log($log_message); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- opt-in diagnostics, WP_DEBUG only
+        }
 
         // Log to database
         self::log_to_database($level, $message, $context);
@@ -68,13 +70,13 @@ class CFZT_Logger {
         // Get IP address
         $ip_address = '';
         if (isset($_SERVER['REMOTE_ADDR'])) {
-            $ip_address = sanitize_text_field($_SERVER['REMOTE_ADDR']);
+            $ip_address = sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']));
         }
 
         // Get user agent
         $user_agent = '';
         if (isset($_SERVER['HTTP_USER_AGENT'])) {
-            $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT']);
+            $user_agent = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']));
         }
 
         // Extract specific context fields
@@ -83,6 +85,7 @@ class CFZT_Logger {
         $success = isset($context['success']) ? (int)$context['success'] : 0;
 
         // Insert log entry
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- plugin's own log table
         $wpdb->insert(
             $table_name,
             array(
@@ -127,17 +130,19 @@ class CFZT_Logger {
          */
         $keep = max(100, (int) apply_filters('cfzt_log_retention_rows', 10000));
 
-        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- plugin's own log table, name built from $wpdb->prefix
+        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
         if ($count > $keep) {
             $wpdb->query($wpdb->prepare(
-                "DELETE FROM $table_name
+                "DELETE FROM {$table_name}
                 WHERE id NOT IN (
                     SELECT id FROM (
-                        SELECT id FROM $table_name ORDER BY log_time DESC, id DESC LIMIT %d
+                        SELECT id FROM {$table_name} ORDER BY log_time DESC, id DESC LIMIT %d
                     ) AS tmp
                 )",
                 $keep
             ));
+            // phpcs:enable
         }
     }
 
@@ -213,7 +218,7 @@ class CFZT_Logger {
      */
     public static function auth_attempt(string $identifier, bool $success, string $auth_method = 'oidc', string $reason = ''): void {
         $status = $success ? 'SUCCESS' : 'FAILED';
-        $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
+        $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
 
         $message = sprintf(
             'Authentication %s for: %s | Method: %s | IP: %s',

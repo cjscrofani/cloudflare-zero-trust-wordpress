@@ -10,6 +10,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- included from a CFZT_Admin method, so these variables are local to that call
+
 // Get plugin options and status
 $options = CFZT_Plugin::get_option();
 $security = new CFZT_Security();
@@ -21,6 +23,7 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
 
 // Get authentication stats
 global $wpdb;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- three COUNT queries for the dashboard tiles, rendered once per page view
 $cfzt_users_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'cfzt_user' AND meta_value = '1'");
 $total_users = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}");
 
@@ -244,17 +247,17 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
 <div class="wrap cfzt-dashboard">
     <!-- Header -->
     <div class="cfzt-dashboard-header">
-        <h1><?php _e('Cloudflare Zero Trust Dashboard', 'cf-zero-trust'); ?></h1>
-        <p><?php _e('Monitor your authentication activity and system health', 'cf-zero-trust'); ?></p>
+        <h1><?php esc_html_e('Cloudflare Zero Trust Dashboard', 'zero-trust-login-for-cloudflare'); ?></h1>
+        <p><?php esc_html_e('Monitor your authentication activity and system health', 'zero-trust-login-for-cloudflare'); ?></p>
     </div>
 
     <?php if (!$is_configured): ?>
         <div class="notice notice-warning">
             <p>
-                <strong><?php _e('Plugin Not Configured', 'cf-zero-trust'); ?></strong><br>
-                <?php _e('Please configure your Cloudflare Zero Trust settings to start using the plugin.', 'cf-zero-trust'); ?>
+                <strong><?php esc_html_e('Plugin Not Configured', 'zero-trust-login-for-cloudflare'); ?></strong><br>
+                <?php esc_html_e('Please configure your Cloudflare Zero Trust settings to start using the plugin.', 'zero-trust-login-for-cloudflare'); ?>
                 <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary" style="margin-left: 10px;">
-                    <?php _e('Configure Now', 'cf-zero-trust'); ?>
+                    <?php esc_html_e('Configure Now', 'zero-trust-login-for-cloudflare'); ?>
                 </a>
             </p>
         </div>
@@ -266,7 +269,7 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h2 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
                     <span class="dashicons dashicons-admin-settings" style="font-size: 18px;"></span>
-                    <?php _e('Setup Progress', 'cf-zero-trust'); ?>
+                    <?php esc_html_e('Setup Progress', 'zero-trust-login-for-cloudflare'); ?>
                 </h2>
                 <span style="font-size: 20px; font-weight: 700; color: #f38020;">
                     <?php echo esc_html($setup_progress['percentage']); ?>%
@@ -280,7 +283,7 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             </div>
             <?php if (!empty($setup_progress['incomplete'])): ?>
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-top: 15px;">
-                    <strong style="display: block; margin-bottom: 10px;"><?php _e('Remaining Tasks:', 'cf-zero-trust'); ?></strong>
+                    <strong style="display: block; margin-bottom: 10px;"><?php esc_html_e('Remaining Tasks:', 'zero-trust-login-for-cloudflare'); ?></strong>
                     <ul style="margin: 0; padding-left: 20px;">
                         <?php foreach ($setup_progress['incomplete'] as $task): ?>
                             <li style="margin: 5px 0;"><?php echo esc_html($task); ?></li>
@@ -290,7 +293,7 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <?php endif; ?>
             <div style="margin-top: 15px;">
                 <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
-                    <?php _e('Complete Setup', 'cf-zero-trust'); ?>
+                    <?php esc_html_e('Complete Setup', 'zero-trust-login-for-cloudflare'); ?>
                 </a>
             </div>
         </div>
@@ -303,10 +306,10 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-stat-icon blue">
                 <span class="dashicons dashicons-admin-users"></span>
             </div>
-            <h3><?php _e('Cloudflare Users', 'cf-zero-trust'); ?></h3>
-            <div class="cfzt-stat-value"><?php echo number_format_i18n($cfzt_users_count); ?></div>
+            <h3><?php esc_html_e('Cloudflare Users', 'zero-trust-login-for-cloudflare'); ?></h3>
+            <div class="cfzt-stat-value"><?php echo esc_html(number_format_i18n($cfzt_users_count)); ?></div>
             <div class="cfzt-stat-label">
-                <?php printf(__('of %s total users', 'cf-zero-trust'), number_format_i18n($total_users)); ?>
+                <?php /* translators: %s: total number of WordPress users */ printf(esc_html__('of %s total users', 'zero-trust-login-for-cloudflare'), esc_html(number_format_i18n($total_users))); ?>
             </div>
         </div>
 
@@ -315,9 +318,9 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-stat-icon green">
                 <span class="dashicons dashicons-yes-alt"></span>
             </div>
-            <h3><?php _e('Recent Logins (24h)', 'cf-zero-trust'); ?></h3>
-            <div class="cfzt-stat-value"><?php echo number_format_i18n($recent_logins); ?></div>
-            <div class="cfzt-stat-label"><?php _e('Successful authentications', 'cf-zero-trust'); ?></div>
+            <h3><?php esc_html_e('Recent Logins (24h)', 'zero-trust-login-for-cloudflare'); ?></h3>
+            <div class="cfzt-stat-value"><?php echo esc_html(number_format_i18n($recent_logins)); ?></div>
+            <div class="cfzt-stat-label"><?php esc_html_e('Successful authentications', 'zero-trust-login-for-cloudflare'); ?></div>
         </div>
 
         <!-- Auth Method -->
@@ -325,12 +328,12 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-stat-icon orange">
                 <span class="dashicons dashicons-shield-alt"></span>
             </div>
-            <h3><?php _e('Authentication Method', 'cf-zero-trust'); ?></h3>
+            <h3><?php esc_html_e('Authentication Method', 'zero-trust-login-for-cloudflare'); ?></h3>
             <div class="cfzt-stat-value" style="font-size: 28px;">
-                <?php esc_html_e('OIDC', 'cf-zero-trust'); ?>
+                <?php esc_html_e('OIDC', 'zero-trust-login-for-cloudflare'); ?>
             </div>
             <div class="cfzt-stat-label">
-                <?php esc_html_e('Production-ready', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Production-ready', 'zero-trust-login-for-cloudflare'); ?>
             </div>
         </div>
 
@@ -339,37 +342,37 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-stat-icon purple">
                 <span class="dashicons dashicons-admin-network"></span>
             </div>
-            <h3><?php _e('Login Mode', 'cf-zero-trust'); ?></h3>
+            <h3><?php esc_html_e('Login Mode', 'zero-trust-login-for-cloudflare'); ?></h3>
             <div class="cfzt-stat-value" style="font-size: 22px;">
                 <?php
                 $login_mode = isset($options['login_mode']) ? $options['login_mode'] : 'secondary';
-                echo $login_mode === 'primary' ? __('Primary', 'cf-zero-trust') : __('Secondary', 'cf-zero-trust');
+                echo $login_mode === 'primary' ? esc_html__('Primary', 'zero-trust-login-for-cloudflare') : esc_html__('Secondary', 'zero-trust-login-for-cloudflare');
                 ?>
             </div>
             <div class="cfzt-stat-label">
-                <?php echo $login_mode === 'primary' ? __('CF only', 'cf-zero-trust') : __('CF + WordPress', 'cf-zero-trust'); ?>
+                <?php echo $login_mode === 'primary' ? esc_html__('CF only', 'zero-trust-login-for-cloudflare') : esc_html__('CF + WordPress', 'zero-trust-login-for-cloudflare'); ?>
             </div>
         </div>
     </div>
 
     <!-- Health Check -->
     <div class="cfzt-section">
-        <h2><?php _e('System Health', 'cf-zero-trust'); ?></h2>
+        <h2><?php esc_html_e('System Health', 'zero-trust-login-for-cloudflare'); ?></h2>
 
         <?php if ($is_configured): ?>
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon success">✓</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('Plugin Configured', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('Cloudflare credentials are set and ready to use', 'cf-zero-trust'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('Plugin Configured', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php esc_html_e('Cloudflare credentials are set and ready to use', 'zero-trust-login-for-cloudflare'); ?></div>
                 </div>
             </div>
         <?php else: ?>
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon error">✗</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('Plugin Not Configured', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('Please complete the setup wizard to configure Cloudflare credentials', 'cf-zero-trust'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('Plugin Not Configured', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php esc_html_e('Please complete the setup wizard to configure Cloudflare credentials', 'zero-trust-login-for-cloudflare'); ?></div>
                 </div>
             </div>
         <?php endif; ?>
@@ -378,16 +381,16 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon success">✓</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('Encryption Available', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php printf(__('Using %s for credential encryption', 'cf-zero-trust'), $security_status['encryption_method']); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('Encryption Available', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php /* translators: %s: encryption method name */ printf(esc_html__('Using %s for credential encryption', 'zero-trust-login-for-cloudflare'), esc_html($security_status['encryption_method'])); ?></div>
                 </div>
             </div>
         <?php else: ?>
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon warning">⚠</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('Limited Encryption', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('OpenSSL not available - using basic obfuscation. Consider enabling OpenSSL.', 'cf-zero-trust'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('Limited Encryption', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php esc_html_e('OpenSSL not available - using basic obfuscation. Consider enabling OpenSSL.', 'zero-trust-login-for-cloudflare'); ?></div>
                 </div>
             </div>
         <?php endif; ?>
@@ -396,16 +399,16 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon success">✓</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('HTTPS Enabled', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('Your site is using a secure SSL connection', 'cf-zero-trust'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('HTTPS Enabled', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php esc_html_e('Your site is using a secure SSL connection', 'zero-trust-login-for-cloudflare'); ?></div>
                 </div>
             </div>
         <?php else: ?>
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon error">✗</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('HTTPS Not Enabled', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php _e('HTTPS is required for production use of Cloudflare Zero Trust', 'cf-zero-trust'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('HTTPS Not Enabled', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php esc_html_e('HTTPS is required for production use of Cloudflare Zero Trust', 'zero-trust-login-for-cloudflare'); ?></div>
                 </div>
             </div>
         <?php endif; ?>
@@ -415,8 +418,8 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
             <div class="cfzt-health-check">
                 <div class="cfzt-health-icon success">✓</div>
                 <div class="cfzt-health-content">
-                    <div class="cfzt-health-title"><?php _e('Auto-Updates Enabled', 'cf-zero-trust'); ?></div>
-                    <div class="cfzt-health-desc"><?php printf(__('Checking for updates from %s', 'cf-zero-trust'), 'GitHub'); ?></div>
+                    <div class="cfzt-health-title"><?php esc_html_e('Auto-Updates Enabled', 'zero-trust-login-for-cloudflare'); ?></div>
+                    <div class="cfzt-health-desc"><?php /* translators: %s: update source, e.g. GitHub */ printf(esc_html__('Checking for updates from %s', 'zero-trust-login-for-cloudflare'), 'GitHub'); ?></div>
                 </div>
             </div>
         <?php endif; ?>
@@ -424,36 +427,36 @@ $recent_logins = $wpdb->get_var($wpdb->prepare(
 
     <!-- Quick Actions -->
     <div class="cfzt-section">
-        <h2><?php _e('Quick Actions', 'cf-zero-trust'); ?></h2>
+        <h2><?php esc_html_e('Quick Actions', 'zero-trust-login-for-cloudflare'); ?></h2>
         <div class="cfzt-quick-actions">
             <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="cfzt-action-btn">
                 <span class="dashicons dashicons-admin-settings"></span>
-                <?php _e('Plugin Settings', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Plugin Settings', 'zero-trust-login-for-cloudflare'); ?>
             </a>
 
             <a href="<?php echo esc_url(wp_login_url()); ?>" class="cfzt-action-btn" target="_blank">
                 <span class="dashicons dashicons-external"></span>
-                <?php _e('View Login Page', 'cf-zero-trust'); ?>
+                <?php esc_html_e('View Login Page', 'zero-trust-login-for-cloudflare'); ?>
             </a>
 
             <a href="<?php echo esc_url(admin_url('users.php')); ?>" class="cfzt-action-btn">
                 <span class="dashicons dashicons-admin-users"></span>
-                <?php _e('Manage Users', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Manage Users', 'zero-trust-login-for-cloudflare'); ?>
             </a>
 
             <button type="button" id="cfzt-dashboard-test-connection" class="cfzt-action-btn" style="border: none; cursor: pointer; text-align: left;">
                 <span class="dashicons dashicons-yes-alt"></span>
-                <?php _e('Test Connection', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Test Connection', 'zero-trust-login-for-cloudflare'); ?>
             </button>
 
-            <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>" class="cfzt-action-btn" target="_blank">
+            <a href="<?php echo esc_url('https://github.com/' . CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY); ?>" class="cfzt-action-btn" target="_blank">
                 <span class="dashicons dashicons-book"></span>
-                <?php _e('Documentation', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Documentation', 'zero-trust-login-for-cloudflare'); ?>
             </a>
 
-            <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>/issues" class="cfzt-action-btn" target="_blank">
+            <a href="<?php echo esc_url('https://github.com/' . CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY . '/issues'); ?>" class="cfzt-action-btn" target="_blank">
                 <span class="dashicons dashicons-sos"></span>
-                <?php _e('Get Support', 'cf-zero-trust'); ?>
+                <?php esc_html_e('Get Support', 'zero-trust-login-for-cloudflare'); ?>
             </a>
         </div>
     </div>
@@ -479,7 +482,7 @@ jQuery(document).ready(function($) {
             type: 'POST',
             data: {
                 action: 'cfzt_test_connection',
-                nonce: '<?php echo wp_create_nonce('cfzt_test_connection'); ?>'
+                nonce: '<?php echo esc_js(wp_create_nonce('cfzt_test_connection')); ?>'
             },
             success: function(response) {
                 var html = '<div class="cfzt-section" style="margin-top: 20px;">';

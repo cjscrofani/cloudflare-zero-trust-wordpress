@@ -2,29 +2,95 @@
 # Build the release zip WordPress expects: a single top-level folder named after
 # the plugin slug, with dev-only files excluded via .gitattributes export-ignore.
 #
-# Usage: .dev/bin/build-release [git-ref]   (defaults to HEAD)
-# Output: dist/cloudflare-zero-trust-login-<version>.zip
+# Usage: .dev/bin/build-release [--wporg] [git-ref]   (ref defaults to HEAD)
 #
-# Attach the result to the GitHub release as an asset. The in-plugin updater
-# prefers a .zip asset over the tag zipball, and the asset already has the right
-# folder name so no rename is needed on install.
+#   default   GitHub release asset. Includes the GitHub update checker.
+#             Output: dist/zero-trust-login-for-cloudflare-<version>.zip
+#             Attach it to the GitHub release; the in-plugin updater prefers a
+#             .zip asset over the tag zipball and renames the extracted folder
+#             to whatever the site already has, so existing installs under the
+#             old cloudflare-zero-trust-login folder keep updating.
+#
+#   --worktree  Package the working tree as it is on disk (tracked and untracked,
+#               minus .gitignore'd files) instead of a committed ref. For testing
+#               a build before committing; never publish one of these.
+#
+#   --wporg   WordPress.org submission / SVN package. Identical except that the
+#             GitHub update checker is removed: plugins hosted on WordPress.org
+#             may not ship their own updater (directory guideline 8).
+#             Output: dist/zero-trust-login-for-cloudflare-<version>-wporg.zip
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
-ref="${1:-HEAD}"
-slug="cloudflare-zero-trust-login"
-version="$(git show "${ref}:cloudflare-zero-trust-login.php" | sed -n 's/^ \* Version: *\([0-9][0-9.]*\).*/\1/p' | head -1)"
 
+wporg=0
+worktree=0
+ref="HEAD"
+for arg in "$@"; do
+  case "$arg" in
+    --wporg) wporg=1 ;;
+    --worktree) worktree=1 ;;
+    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) ref="$arg" ;;
+  esac
+done
+
+slug="zero-trust-login-for-cloudflare"
+
+if [[ $worktree -eq 1 ]]; then
+  # Build a throwaway tree object from the working directory without touching
+  # the real index, then archive that.
+  tmp_index="$(mktemp)"; rm -f "$tmp_index"
+  GIT_INDEX_FILE="$tmp_index" git add -A .
+  ref="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
+  rm -f "$tmp_index"
+fi
+main_file="cloudflare-zero-trust-login.php"
+updater="includes/class-github-updater.php"
+
+version="$(git show "${ref}:${main_file}" | sed -n 's/^ \* Version: *\([0-9][0-9.]*\).*/\1/p' | head -1)"
 if [[ -z "$version" ]]; then
-  echo "Could not read the Version header from ${ref}" >&2
+  echo "Could not read the Version header from ${ref}:${main_file}" >&2
+  exit 1
+fi
+
+stable_tag="$(git show "${ref}:readme.txt" 2>/dev/null | sed -n 's/^Stable tag: *//p' | head -1 || true)"
+if [[ -n "$stable_tag" && "$stable_tag" != "$version" ]]; then
+  echo "readme.txt Stable tag ($stable_tag) does not match the plugin Version ($version)" >&2
   exit 1
 fi
 
 mkdir -p dist
-out="dist/${slug}-${version}.zip"
+if [[ $wporg -eq 1 ]]; then
+  out="dist/${slug}-${version}-wporg.zip"
+else
+  out="dist/${slug}-${version}.zip"
+fi
 rm -f "$out"
-git archive --format=zip --prefix="${slug}/" -o "$out" "$ref"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+git archive --format=tar --prefix="${slug}/" "$ref" | tar -x -C "$tmp"
+
+if [[ $wporg -eq 1 ]]; then
+  rm -f "${tmp}/${slug}/${updater}"
+fi
+
+# Portable zip: no extended attributes, no resource forks, deterministic order.
+(cd "$tmp" && find "$slug" -type f | LC_ALL=C sort | zip -q -X "$OLDPWD/$out" -@)
 
 echo "Built $out"
-echo "Contents check (should show no .dev/ or *.md entries):"
-unzip -l "$out" | awk '{print $4}' | grep -E '^cloudflare-zero-trust-login/(\.dev|.*\.md)' && exit 1 || echo "  clean"
+echo "Contents check:"
+listing="$(unzip -Z1 "$out")"
+bad="$(printf '%s\n' "$listing" | grep -E "^${slug}/(\.|dist/|.*\.md$)" || true)"
+if [[ -n "$bad" ]]; then
+  echo "  unexpected entries:"; printf '    %s\n' $bad; exit 1
+fi
+if [[ $wporg -eq 1 ]] && printf '%s\n' "$listing" | grep -q "^${slug}/${updater}$"; then
+  echo "  updater still present in --wporg build"; exit 1
+fi
+if ! printf '%s\n' "$listing" | grep -q "^${slug}/readme.txt$"; then
+  echo "  readme.txt missing"; exit 1
+fi
+echo "  clean ($(printf '%s\n' "$listing" | grep -c -v '/$') files)"

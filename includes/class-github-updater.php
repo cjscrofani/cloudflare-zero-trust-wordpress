@@ -1,6 +1,6 @@
 <?php
 /**
- * GitHub Updater Class for Cloudflare Zero Trust Login Plugin
+ * GitHub Updater Class for Zero Trust Login for Cloudflare
  * 
  * This class handles checking for updates from GitHub releases and integrating
  * with WordPress's built-in update system.
@@ -259,7 +259,7 @@ if (!class_exists('CFZT_GitHub_Updater')) {
             if (!$wp_filesystem || !$wp_filesystem->move(untrailingslashit($source), untrailingslashit($new_source), true)) {
                 return new WP_Error(
                     'cfzt_rename_failed',
-                    __('Could not rename the update package to the plugin folder name.', 'cf-zero-trust')
+                    __('Could not rename the update package to the plugin folder name.', 'zero-trust-login-for-cloudflare')
                 );
             }
 
@@ -461,7 +461,7 @@ if (!class_exists('CFZT_GitHub_Updater')) {
                 
                 if (count($lines) > 5) {
                     echo '<br><a href="#" onclick="event.preventDefault(); window.open(\'plugin-install.php?tab=plugin-information&plugin=' . 
-                         dirname(plugin_basename($this->plugin_file)) . 
+                         esc_attr(dirname(plugin_basename($this->plugin_file))) . 
                          '&TB_iframe=true&width=600&height=800\', \'plugin-details\', \'width=600,height=800\');">View full changelog</a>';
                 }
             }

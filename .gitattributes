@@ -83,3 +83,5 @@ CHANGELOG.md export-ignore
 *.js diff=javascript
 *.css diff=css
 *.html diff=html
+/.wordpress-org export-ignore
+.wordpress-org export-ignore

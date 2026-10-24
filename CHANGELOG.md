@@ -1,11 +1,39 @@
 # Changelog
 
-All notable changes to the Cloudflare Zero Trust Login for WordPress plugin will be documented in this file.
+All notable changes to the Zero Trust Login for Cloudflare plugin (formerly Cloudflare Zero Trust Login for WordPress) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [2.1.0] - 2026-10-24
+
+### Changed
+- **Renamed to "Zero Trust Login for Cloudflare"** ahead of submission to the WordPress plugin
+  directory, whose trademark rule does not allow a plugin name to begin with "Cloudflare".
+  The text domain is now `zero-trust-login-for-cloudflare` to match the directory slug. The
+  main plugin file keeps its name, so existing installs update in place and keep their
+  settings; the GitHub updater renames new packages to whatever folder the site already uses.
+- Every string with a placeholder now carries a translators comment, and two strings with
+  more than one placeholder use numbered placeholders.
+- Token and userinfo failures are recorded through the plugin's own logger (and so appear in
+  the log viewer) instead of going straight to the PHP error log. The error log is now only
+  written to when `WP_DEBUG` is on.
+- `load_plugin_textdomain()` is no longer called; WordPress loads translations itself.
+
+### Fixed
+- Every echoed string is escaped for its context, and every request value is unslashed and
+  sanitized before use, as the WordPress coding standards require. Plugin Check reports no
+  errors on the WordPress.org package.
+- Log queries always go through `$wpdb->prepare()`.
+- Export filenames use `gmdate()` so they do not depend on the runtime timezone.
+
+### Added
+- `readme.txt` in the WordPress.org format, including the external-services disclosure.
+- `.dev/bin/build-release --wporg` builds the WordPress.org package, which is the GitHub
+  package without the GitHub update checker (directory guideline 8).
+- Directory listing assets (icon, banners, screenshot) under `.wordpress-org/`.
 
 ## [2.0.0] - 2026-10-23
 

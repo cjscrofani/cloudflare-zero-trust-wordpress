@@ -86,8 +86,8 @@ class CFZT_Admin {
     public function add_admin_menu() {
         // Main settings page
         add_options_page(
-            __('Cloudflare Zero Trust Settings', 'cf-zero-trust'),
-            __('CF Zero Trust', 'cf-zero-trust'),
+            __('Cloudflare Zero Trust Settings', 'zero-trust-login-for-cloudflare'),
+            __('CF Zero Trust', 'zero-trust-login-for-cloudflare'),
             'manage_options',
             'cf-zero-trust',
             array($this, 'settings_page')
@@ -95,8 +95,8 @@ class CFZT_Admin {
 
         // Dashboard page under Tools menu for easy access
         add_management_page(
-            __('CF Zero Trust Dashboard', 'cf-zero-trust'),
-            __('CF Zero Trust', 'cf-zero-trust'),
+            __('CF Zero Trust Dashboard', 'zero-trust-login-for-cloudflare'),
+            __('CF Zero Trust', 'zero-trust-login-for-cloudflare'),
             'manage_options',
             'cf-zero-trust-dashboard',
             array($this, 'dashboard_page')
@@ -104,8 +104,8 @@ class CFZT_Admin {
 
         // Logs page under Tools menu
         add_management_page(
-            __('CF Zero Trust Logs', 'cf-zero-trust'),
-            __('CF Zero Trust Logs', 'cf-zero-trust'),
+            __('CF Zero Trust Logs', 'zero-trust-login-for-cloudflare'),
+            __('CF Zero Trust Logs', 'zero-trust-login-for-cloudflare'),
             'manage_options',
             'cf-zero-trust-logs',
             array($this, 'logs_page')
@@ -121,18 +121,18 @@ class CFZT_Admin {
         // Main section
         add_settings_section(
             'cfzt_main_section',
-            __('General Configuration', 'cf-zero-trust'),
+            __('General Configuration', 'zero-trust-login-for-cloudflare'),
             array($this, 'main_section_callback'),
             'cf-zero-trust'
         );
         
         // Add general settings fields
         $general_fields = array(
-            'team_domain' => __('Team Domain', 'cf-zero-trust'),
-            'login_mode' => __('Login Mode', 'cf-zero-trust'),
-            'auto_create_users' => __('Auto-create Users', 'cf-zero-trust'),
-            'default_role' => __('Default User Role', 'cf-zero-trust'),
-            'enable_logging' => __('Enable Authentication Logging', 'cf-zero-trust')
+            'team_domain' => __('Team Domain', 'zero-trust-login-for-cloudflare'),
+            'login_mode' => __('Login Mode', 'zero-trust-login-for-cloudflare'),
+            'auto_create_users' => __('Auto-create Users', 'zero-trust-login-for-cloudflare'),
+            'default_role' => __('Default User Role', 'zero-trust-login-for-cloudflare'),
+            'enable_logging' => __('Enable Authentication Logging', 'zero-trust-login-for-cloudflare')
         );
         
         foreach ($general_fields as $field => $label) {
@@ -149,15 +149,15 @@ class CFZT_Admin {
         // OIDC section
         add_settings_section(
             'cfzt_oidc_section',
-            __('OIDC Configuration', 'cf-zero-trust'),
+            __('OIDC Configuration', 'zero-trust-login-for-cloudflare'),
             array($this, 'oidc_section_callback'),
             'cf-zero-trust'
         );
         
         $oidc_fields = array(
-            'app_type' => __('Application Type', 'cf-zero-trust'),
-            'client_id' => __('Client ID', 'cf-zero-trust'),
-            'client_secret' => __('Client Secret', 'cf-zero-trust'),
+            'app_type' => __('Application Type', 'zero-trust-login-for-cloudflare'),
+            'client_id' => __('Client ID', 'zero-trust-login-for-cloudflare'),
+            'client_secret' => __('Client Secret', 'zero-trust-login-for-cloudflare'),
         );
         
         foreach ($oidc_fields as $field => $label) {
@@ -197,19 +197,19 @@ class CFZT_Admin {
         ?>
         <div class="notice notice-warning cfzt-saml-removed-notice is-dismissible"
              data-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_saml_notice')); ?>">
-            <h3 style="margin-bottom: 5px;"><?php esc_html_e('SAML support has been removed', 'cf-zero-trust'); ?></h3>
+            <h3 style="margin-bottom: 5px;"><?php esc_html_e('SAML support has been removed', 'zero-trust-login-for-cloudflare'); ?></h3>
             <p>
-                <?php esc_html_e('This site was configured to authenticate with SAML. That implementation never verified response signatures, so it has been removed rather than left in place. Cloudflare Zero Trust authentication now runs over OIDC only.', 'cf-zero-trust'); ?>
+                <?php esc_html_e('This site was configured to authenticate with SAML. That implementation never verified response signatures, so it has been removed rather than left in place. Cloudflare Zero Trust authentication now runs over OIDC only.', 'zero-trust-login-for-cloudflare'); ?>
             </p>
             <?php if ('login_restored' === $state) : ?>
                 <p>
-                    <strong><?php esc_html_e('Your login mode was changed from "Cloudflare only" back to "Cloudflare alongside WordPress login"', 'cf-zero-trust'); ?></strong>
-                    <?php esc_html_e('so that you can still reach your site while you reconfigure. Set it back once OIDC is working.', 'cf-zero-trust'); ?>
+                    <strong><?php esc_html_e('Your login mode was changed from "Cloudflare only" back to "Cloudflare alongside WordPress login"', 'zero-trust-login-for-cloudflare'); ?></strong>
+                    <?php esc_html_e('so that you can still reach your site while you reconfigure. Set it back once OIDC is working.', 'zero-trust-login-for-cloudflare'); ?>
                 </p>
             <?php endif; ?>
             <p>
                 <a href="<?php echo esc_url($settings_url); ?>" class="button button-primary">
-                    <?php esc_html_e('Set up OIDC', 'cf-zero-trust'); ?>
+                    <?php esc_html_e('Set up OIDC', 'zero-trust-login-for-cloudflare'); ?>
                 </a>
             </p>
         </div>
@@ -234,12 +234,12 @@ class CFZT_Admin {
      * @return void
      */
     public function ajax_dismiss_saml_notice() {
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_saml_notice')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_dismiss_saml_notice')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Permission denied.', 'cf-zero-trust'));
+            wp_send_json_error(__('Permission denied.', 'zero-trust-login-for-cloudflare'));
         }
 
         delete_option('cfzt_saml_removed_notice');
@@ -421,14 +421,14 @@ class CFZT_Admin {
      * Main section callback
      */
     public function main_section_callback() {
-        echo '<p>' . __('Configure your Cloudflare Zero Trust integration settings below.', 'cf-zero-trust') . '</p>';
+        echo '<p>' . esc_html__('Configure your Cloudflare Zero Trust integration settings below.', 'zero-trust-login-for-cloudflare') . '</p>';
     }
     
     /**
      * OIDC section callback
      */
     public function oidc_section_callback() {
-        echo '<p>' . esc_html__('Configure OIDC (OpenID Connect) specific settings.', 'cf-zero-trust') . '</p>';
+        echo '<p>' . esc_html__('Configure OIDC (OpenID Connect) specific settings.', 'zero-trust-login-for-cloudflare') . '</p>';
     }
     
     /**
@@ -484,10 +484,10 @@ class CFZT_Admin {
         $value = !empty($value) ? $value : 'saas';
         ?>
         <select name="cfzt_settings[app_type]">
-            <option value="saas" <?php selected($value, 'saas'); ?>><?php _e('SaaS (Recommended)', 'cf-zero-trust'); ?></option>
-            <option value="self-hosted" <?php selected($value, 'self-hosted'); ?>><?php _e('Self-hosted', 'cf-zero-trust'); ?></option>
+            <option value="saas" <?php selected($value, 'saas'); ?>><?php esc_html_e('SaaS (Recommended)', 'zero-trust-login-for-cloudflare'); ?></option>
+            <option value="self-hosted" <?php selected($value, 'self-hosted'); ?>><?php esc_html_e('Self-hosted', 'zero-trust-login-for-cloudflare'); ?></option>
         </select>
-        <p class="description"><?php _e('Choose the application type you created in Cloudflare Zero Trust. SaaS apps provide standard OIDC endpoints.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php esc_html_e('Choose the application type you created in Cloudflare Zero Trust. SaaS apps provide standard OIDC endpoints.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php
     }
     
@@ -498,8 +498,8 @@ class CFZT_Admin {
         ?>
         <input type="text" name="cfzt_settings[team_domain]" value="<?php echo esc_attr($value); ?>" class="regular-text" />
         <p class="description">
-            <?php _e('Your Cloudflare Zero Trust team domain (e.g., <code>yourteam.cloudflareaccess.com</code>)', 'cf-zero-trust'); ?><br>
-            <?php _e('This is the hostname from your Issuer URL, without https://', 'cf-zero-trust'); ?>
+            <?php echo wp_kses_post(__('Your Cloudflare Zero Trust team domain (e.g., <code>yourteam.cloudflareaccess.com</code>)', 'zero-trust-login-for-cloudflare')); ?><br>
+            <?php esc_html_e('This is the hostname from your Issuer URL, without https://', 'zero-trust-login-for-cloudflare'); ?>
         </p>
         <?php
     }
@@ -512,9 +512,9 @@ class CFZT_Admin {
         ?>
         <input type="text" name="cfzt_settings[client_id]" value="<?php echo esc_attr($value); ?>" class="regular-text" <?php echo $from_constant ? 'readonly' : ''; ?> />
         <?php if ($from_constant): ?>
-            <p class="description"><strong><?php _e('Value set via constant/environment variable', 'cf-zero-trust'); ?></strong></p>
+            <p class="description"><strong><?php esc_html_e('Value set via constant/environment variable', 'zero-trust-login-for-cloudflare'); ?></strong></p>
         <?php else: ?>
-            <p class="description"><?php _e('Client ID from your Cloudflare Zero Trust OIDC application.', 'cf-zero-trust'); ?></p>
+            <p class="description"><?php esc_html_e('Client ID from your Cloudflare Zero Trust OIDC application.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php endif; ?>
         <?php
     }
@@ -530,20 +530,20 @@ class CFZT_Admin {
         // is pointless if every settings-page load hands it to any browser
         // extension, cache or shoulder-surfer in plaintext.
         if ($from_constant) {
-            $placeholder = __('Set via CFZT_CLIENT_SECRET constant', 'cf-zero-trust');
+            $placeholder = __('Set via CFZT_CLIENT_SECRET constant', 'zero-trust-login-for-cloudflare');
         } elseif ($has_secret) {
-            $placeholder = __('Saved. Leave blank to keep the current secret.', 'cf-zero-trust');
+            $placeholder = __('Saved. Leave blank to keep the current secret.', 'zero-trust-login-for-cloudflare');
         } else {
             $placeholder = '';
         }
         ?>
         <input type="password" name="cfzt_settings[client_secret]" value="" class="regular-text" autocomplete="new-password" placeholder="<?php echo esc_attr($placeholder); ?>" <?php echo $from_constant ? 'readonly' : ''; ?> />
         <?php if ($from_constant): ?>
-            <p class="description"><strong><?php _e('Value set via constant/environment variable (hidden for security)', 'cf-zero-trust'); ?></strong></p>
+            <p class="description"><strong><?php esc_html_e('Value set via constant/environment variable (hidden for security)', 'zero-trust-login-for-cloudflare'); ?></strong></p>
         <?php elseif ($has_secret): ?>
-            <p class="description"><?php _e('A client secret is saved and encrypted. Enter a new one only to replace it.', 'cf-zero-trust'); ?></p>
+            <p class="description"><?php esc_html_e('A client secret is saved and encrypted. Enter a new one only to replace it.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php else: ?>
-            <p class="description"><?php _e('Client Secret from your Cloudflare Zero Trust OIDC application.', 'cf-zero-trust'); ?></p>
+            <p class="description"><?php esc_html_e('Client Secret from your Cloudflare Zero Trust OIDC application.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php endif; ?>
         <?php
     }
@@ -555,10 +555,10 @@ class CFZT_Admin {
         $value = !empty($value) ? $value : 'secondary';
         ?>
         <select name="cfzt_settings[login_mode]">
-            <option value="secondary" <?php selected($value, 'secondary'); ?>><?php _e('Secondary (Show both login options)', 'cf-zero-trust'); ?></option>
-            <option value="primary" <?php selected($value, 'primary'); ?>><?php _e('Primary (Disable WordPress login)', 'cf-zero-trust'); ?></option>
+            <option value="secondary" <?php selected($value, 'secondary'); ?>><?php esc_html_e('Secondary (Show both login options)', 'zero-trust-login-for-cloudflare'); ?></option>
+            <option value="primary" <?php selected($value, 'primary'); ?>><?php esc_html_e('Primary (Disable WordPress login)', 'zero-trust-login-for-cloudflare'); ?></option>
         </select>
-        <p class="description"><?php _e('Choose whether to use Cloudflare Zero Trust as the only login method or alongside WordPress login.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php esc_html_e('Choose whether to use Cloudflare Zero Trust as the only login method or alongside WordPress login.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php
     }
     
@@ -569,10 +569,10 @@ class CFZT_Admin {
         $value = !empty($value) ? $value : 'yes';
         ?>
         <select name="cfzt_settings[auto_create_users]">
-            <option value="yes" <?php selected($value, 'yes'); ?>><?php _e('Yes', 'cf-zero-trust'); ?></option>
-            <option value="no" <?php selected($value, 'no'); ?>><?php _e('No', 'cf-zero-trust'); ?></option>
+            <option value="yes" <?php selected($value, 'yes'); ?>><?php esc_html_e('Yes', 'zero-trust-login-for-cloudflare'); ?></option>
+            <option value="no" <?php selected($value, 'no'); ?>><?php esc_html_e('No', 'zero-trust-login-for-cloudflare'); ?></option>
         </select>
-        <p class="description"><?php _e('Automatically create WordPress users for authenticated Cloudflare Zero Trust users.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php esc_html_e('Automatically create WordPress users for authenticated Cloudflare Zero Trust users.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php
     }
     
@@ -585,7 +585,7 @@ class CFZT_Admin {
         <select name="cfzt_settings[default_role]">
             <?php wp_dropdown_roles($value); ?>
         </select>
-        <p class="description"><?php _e('Default role for auto-created users.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php esc_html_e('Default role for auto-created users.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php
     }
     
@@ -596,10 +596,10 @@ class CFZT_Admin {
         $value = !empty($value) ? $value : 'no';
         ?>
         <select name="cfzt_settings[enable_logging]">
-            <option value="yes" <?php selected($value, 'yes'); ?>><?php _e('Yes', 'cf-zero-trust'); ?></option>
-            <option value="no" <?php selected($value, 'no'); ?>><?php _e('No', 'cf-zero-trust'); ?></option>
+            <option value="yes" <?php selected($value, 'yes'); ?>><?php esc_html_e('Yes', 'zero-trust-login-for-cloudflare'); ?></option>
+            <option value="no" <?php selected($value, 'no'); ?>><?php esc_html_e('No', 'zero-trust-login-for-cloudflare'); ?></option>
         </select>
-        <p class="description"><?php _e('Log authentication attempts to the WordPress error log.', 'cf-zero-trust'); ?></p>
+        <p class="description"><?php esc_html_e('Log authentication attempts to the WordPress error log.', 'zero-trust-login-for-cloudflare'); ?></p>
         <?php
     }
     
@@ -636,19 +636,19 @@ class CFZT_Admin {
                 $login_url = wp_login_url();
                 ?>
                 <div class="notice notice-success is-dismissible">
-                    <h3 style="margin: 10px 0;"><?php _e('Configuration Saved Successfully!', 'cf-zero-trust'); ?></h3>
-                    <p><?php _e('Your Cloudflare Zero Trust settings have been saved. Here are your next steps:', 'cf-zero-trust'); ?></p>
+                    <h3 style="margin: 10px 0;"><?php esc_html_e('Configuration Saved Successfully!', 'zero-trust-login-for-cloudflare'); ?></h3>
+                    <p><?php esc_html_e('Your Cloudflare Zero Trust settings have been saved. Here are your next steps:', 'zero-trust-login-for-cloudflare'); ?></p>
                     <ol style="margin-left: 20px;">
-                        <li><strong><?php _e('Test Your Connection:', 'cf-zero-trust'); ?></strong> <?php _e('Use the test button below to verify your configuration', 'cf-zero-trust'); ?></li>
-                        <li><strong><?php _e('Try Logging In:', 'cf-zero-trust'); ?></strong> <a href="<?php echo esc_url($login_url); ?>" target="_blank"><?php _e('Visit your login page', 'cf-zero-trust'); ?></a></li>
-                        <li><strong><?php _e('Monitor Activity:', 'cf-zero-trust'); ?></strong> <?php _e('Check authentication logs if logging is enabled', 'cf-zero-trust'); ?></li>
+                        <li><strong><?php esc_html_e('Test Your Connection:', 'zero-trust-login-for-cloudflare'); ?></strong> <?php esc_html_e('Use the test button below to verify your configuration', 'zero-trust-login-for-cloudflare'); ?></li>
+                        <li><strong><?php esc_html_e('Try Logging In:', 'zero-trust-login-for-cloudflare'); ?></strong> <a href="<?php echo esc_url($login_url); ?>" target="_blank"><?php esc_html_e('Visit your login page', 'zero-trust-login-for-cloudflare'); ?></a></li>
+                        <li><strong><?php esc_html_e('Monitor Activity:', 'zero-trust-login-for-cloudflare'); ?></strong> <?php esc_html_e('Check authentication logs if logging is enabled', 'zero-trust-login-for-cloudflare'); ?></li>
                     </ol>
                     <p style="margin-top: 15px;">
                         <a href="<?php echo esc_url($login_url); ?>" class="button button-primary" target="_blank">
-                            <span class="dashicons dashicons-external" style="margin-top: 3px;"></span> <?php _e('View Login Page', 'cf-zero-trust'); ?>
+                            <span class="dashicons dashicons-external" style="margin-top: 3px;"></span> <?php esc_html_e('View Login Page', 'zero-trust-login-for-cloudflare'); ?>
                         </a>
                         <button type="button" id="cfzt-test-connection-btn" class="button button-secondary">
-                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> <?php _e('Test Connection', 'cf-zero-trust'); ?>
+                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> <?php esc_html_e('Test Connection', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                     </p>
                 </div>
@@ -657,7 +657,7 @@ class CFZT_Admin {
             if (!$this->security->is_encryption_available()) {
                 ?>
                 <div class="notice notice-warning">
-                    <p><?php _e('OpenSSL is not available on your server. Client secrets will be stored with basic obfuscation instead of strong encryption. Consider enabling OpenSSL for better security.', 'cf-zero-trust'); ?></p>
+                    <p><?php esc_html_e('OpenSSL is not available on your server. Client secrets will be stored with basic obfuscation instead of strong encryption. Consider enabling OpenSSL for better security.', 'zero-trust-login-for-cloudflare'); ?></p>
                 </div>
                 <?php
             }
@@ -704,17 +704,17 @@ class CFZT_Admin {
             <div style="display: flex; align-items: center; padding: 10px 0;">
                 <div style="flex: 1;">
                     <h3 style="margin: 0 0 10px 0;">
-                        <?php _e('Welcome to Cloudflare Zero Trust Login!', 'cf-zero-trust'); ?>
+                        <?php esc_html_e('Welcome to Zero Trust Login for Cloudflare!', 'zero-trust-login-for-cloudflare'); ?>
                     </h3>
                     <p style="margin: 0 0 10px 0;">
-                        <?php _e('Thank you for installing Cloudflare Zero Trust Login for WordPress. To get started, you\'ll need to configure your Cloudflare credentials.', 'cf-zero-trust'); ?>
+                        <?php esc_html_e('Thank you for installing Zero Trust Login for Cloudflare. To get started, you\'ll need to configure your Cloudflare credentials.', 'zero-trust-login-for-cloudflare'); ?>
                     </p>
                     <p style="margin: 0;">
                         <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
-                            <?php _e('Configure Plugin Now', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Configure Plugin Now', 'zero-trust-login-for-cloudflare'); ?>
                         </a>
-                        <a href="https://github.com/<?php echo CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY; ?>#readme" class="button button-secondary" target="_blank">
-                            <?php _e('View Documentation', 'cf-zero-trust'); ?>
+                        <a href="<?php echo esc_url('https://github.com/' . CFZT_GITHUB_USERNAME . '/' . CFZT_GITHUB_REPOSITORY . '#readme'); ?>" class="button button-secondary" target="_blank">
+                            <?php esc_html_e('View Documentation', 'zero-trust-login-for-cloudflare'); ?>
                         </a>
                     </p>
                 </div>
@@ -736,7 +736,7 @@ class CFZT_Admin {
                     type: 'POST',
                     data: {
                         action: 'cfzt_dismiss_activation_notice',
-                        nonce: '<?php echo wp_create_nonce('cfzt_dismiss_notice'); ?>'
+                        nonce: '<?php echo esc_js(wp_create_nonce('cfzt_dismiss_notice')); ?>'
                     }
                 });
             });
@@ -759,13 +759,13 @@ class CFZT_Admin {
      */
     public function dismiss_activation_notice() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_notice')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_dismiss_notice')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to perform this action.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to perform this action.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Dismiss the notice
@@ -809,48 +809,48 @@ class CFZT_Admin {
 
         $checklist = array(
             array(
-                'title' => __('Configure Team Domain', 'cf-zero-trust'),
+                'title' => __('Configure Team Domain', 'zero-trust-login-for-cloudflare'),
                 'completed' => !empty($options['team_domain']),
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#team-domain'),
-                'action_text' => __('Configure', 'cf-zero-trust')
+                'action_text' => __('Configure', 'zero-trust-login-for-cloudflare')
             ),
             array(
-                'title' => __('Configure OIDC Credentials', 'cf-zero-trust'),
+                'title' => __('Configure OIDC Credentials', 'zero-trust-login-for-cloudflare'),
                 'completed' => !empty($options['client_id']) && !empty($options['client_secret']),
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#auth-credentials'),
-                'action_text' => __('Configure', 'cf-zero-trust')
+                'action_text' => __('Configure', 'zero-trust-login-for-cloudflare')
             ),
             array(
-                'title' => __('Choose Login Mode', 'cf-zero-trust'),
+                'title' => __('Choose Login Mode', 'zero-trust-login-for-cloudflare'),
                 'completed' => isset($options['login_mode']),
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#login-mode'),
-                'action_text' => __('Choose', 'cf-zero-trust')
+                'action_text' => __('Choose', 'zero-trust-login-for-cloudflare')
             ),
             array(
-                'title' => __('Test Connection', 'cf-zero-trust'),
+                'title' => __('Test Connection', 'zero-trust-login-for-cloudflare'),
                 'completed' => false, // Always show as pending action
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#test-connection'),
-                'action_text' => __('Test Now', 'cf-zero-trust'),
+                'action_text' => __('Test Now', 'zero-trust-login-for-cloudflare'),
                 'optional' => true
             ),
             array(
-                'title' => __('Review Security Settings', 'cf-zero-trust'),
+                'title' => __('Review Security Settings', 'zero-trust-login-for-cloudflare'),
                 'completed' => isset($options['default_role']) && isset($options['auto_create_users']),
                 'action_url' => admin_url('options-general.php?page=cf-zero-trust#security'),
-                'action_text' => __('Review', 'cf-zero-trust')
+                'action_text' => __('Review', 'zero-trust-login-for-cloudflare')
             )
         );
 
         ?>
-        <div class="notice notice-info cfzt-onboarding-notice is-dismissible" data-dismiss-nonce="<?php echo wp_create_nonce('cfzt_dismiss_onboarding'); ?>">
+        <div class="notice notice-info cfzt-onboarding-notice is-dismissible" data-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_onboarding')); ?>">
             <div style="display: flex; align-items: flex-start; padding: 12px 0;">
                 <div style="font-size: 32px; margin-right: 15px;">🚀</div>
                 <div style="flex: 1;">
                     <h3 style="margin: 0 0 10px 0; font-size: 16px;">
-                        <?php _e('Complete Your Cloudflare Zero Trust Setup', 'cf-zero-trust'); ?>
+                        <?php esc_html_e('Complete Your Cloudflare Zero Trust Setup', 'zero-trust-login-for-cloudflare'); ?>
                     </h3>
                     <p style="margin: 0 0 15px 0;">
-                        <?php printf(__('You\'re %d%% done! Complete these steps to secure your WordPress login:', 'cf-zero-trust'), $progress['percentage']); ?>
+                        <?php /* translators: %d: percentage of setup steps completed */ printf(esc_html__('You\'re %d%% done! Complete these steps to secure your WordPress login:', 'zero-trust-login-for-cloudflare'), (int) $progress['percentage']); ?>
                     </p>
 
                     <div class="cfzt-onboarding-checklist" style="margin-bottom: 10px;">
@@ -865,7 +865,7 @@ class CFZT_Admin {
                                 <span style="flex: 1; <?php echo $item['completed'] ? 'text-decoration: line-through; opacity: 0.6;' : ''; ?>">
                                     <?php echo esc_html($item['title']); ?>
                                     <?php if (isset($item['optional']) && $item['optional']): ?>
-                                        <em style="color: #646970; font-size: 12px;">(<?php _e('recommended', 'cf-zero-trust'); ?>)</em>
+                                        <em style="color: #646970; font-size: 12px;">(<?php esc_html_e('recommended', 'zero-trust-login-for-cloudflare'); ?>)</em>
                                     <?php endif; ?>
                                 </span>
 
@@ -880,10 +880,10 @@ class CFZT_Admin {
 
                     <p style="margin: 10px 0 0 0;">
                         <a href="<?php echo esc_url(admin_url('options-general.php?page=cf-zero-trust')); ?>" class="button button-primary">
-                            <?php _e('Go to Settings', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Go to Settings', 'zero-trust-login-for-cloudflare'); ?>
                         </a>
                         <a href="<?php echo esc_url(admin_url('tools.php?page=cf-zero-trust-dashboard')); ?>" class="button">
-                            <?php _e('View Dashboard', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('View Dashboard', 'zero-trust-login-for-cloudflare'); ?>
                         </a>
                     </p>
                 </div>
@@ -934,13 +934,13 @@ class CFZT_Admin {
      */
     public function ajax_dismiss_onboarding_checklist() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_dismiss_onboarding')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_dismiss_onboarding')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to perform this action.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to perform this action.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Dismiss the checklist for this user
@@ -954,13 +954,13 @@ class CFZT_Admin {
      */
     public function ajax_test_connection() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_test_connection')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_test_connection')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to test the connection.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to test the connection.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Get current settings
@@ -970,8 +970,8 @@ class CFZT_Admin {
         // Validate required fields
         if (empty($team_domain)) {
             wp_send_json_error(array(
-                'message' => __('Team Domain is required. Please configure your settings first.', 'cf-zero-trust'),
-                'issues' => array(__('Missing team domain', 'cf-zero-trust'))
+                'message' => __('Team Domain is required. Please configure your settings first.', 'zero-trust-login-for-cloudflare'),
+                'issues' => array(__('Missing team domain', 'zero-trust-login-for-cloudflare'))
             ));
         }
 
@@ -984,7 +984,7 @@ class CFZT_Admin {
             $app_type = isset($options['app_type']) ? $options['app_type'] : 'saas';
 
             if (empty($client_id)) {
-                $issues[] = __('Client ID is not configured', 'cf-zero-trust');
+                $issues[] = __('Client ID is not configured', 'zero-trust-login-for-cloudflare');
             }
 
             // Test discovery endpoint
@@ -996,11 +996,13 @@ class CFZT_Admin {
 
             if (is_wp_error($response)) {
                 $issues[] = sprintf(
-                    __('Failed to connect to Cloudflare: %s', 'cf-zero-trust'),
+                    /* translators: %s: error message */
+                    __('Failed to connect to Cloudflare: %s', 'zero-trust-login-for-cloudflare'),
                     $response->get_error_message()
                 );
                 $issues[] = sprintf(
-                    __('Attempted URL: %s', 'cf-zero-trust'),
+                    /* translators: %s: URL that was requested */
+                    __('Attempted URL: %s', 'zero-trust-login-for-cloudflare'),
                     $discovery_url
                 );
             } else {
@@ -1009,19 +1011,21 @@ class CFZT_Admin {
 
                 if ($status_code !== 200) {
                     $issues[] = sprintf(
-                        __('Discovery endpoint returned status %d', 'cf-zero-trust'),
+                        /* translators: %d: HTTP status code */
+                        __('Discovery endpoint returned status %d', 'zero-trust-login-for-cloudflare'),
                         $status_code
                     );
                 } else {
                     $discovery_data = json_decode($body, true);
 
                     if (!$discovery_data || !isset($discovery_data['issuer'])) {
-                        $issues[] = __('Invalid discovery document received', 'cf-zero-trust');
+                        $issues[] = __('Invalid discovery document received', 'zero-trust-login-for-cloudflare');
                     } else {
                         // Verify issuer contains team domain
                         if (strpos($discovery_data['issuer'], $team_domain) === false) {
                             $warnings[] = sprintf(
-                                __('Team domain "%s" does not match issuer "%s"', 'cf-zero-trust'),
+                                /* translators: 1: configured team domain, 2: issuer from the discovery document */
+                                __('Team domain "%1$s" does not match issuer "%2$s"', 'zero-trust-login-for-cloudflare'),
                                 $team_domain,
                                 $discovery_data['issuer']
                             );
@@ -1032,40 +1036,40 @@ class CFZT_Admin {
 
             // Check client secret decrypts to something usable
             if ('' === $this->security->get_client_secret()) {
-                $issues[] = __('Client Secret is not configured or cannot be decrypted. Enter it again in the settings.', 'cf-zero-trust');
+                $issues[] = __('Client Secret is not configured or cannot be decrypted. Enter it again in the settings.', 'zero-trust-login-for-cloudflare');
             }
 
         }
 
         // Check SSL
         if (!is_ssl() && !defined('WP_DEBUG')) {
-            $warnings[] = __('Your site is not using HTTPS. This is required for production use.', 'cf-zero-trust');
+            $warnings[] = __('Your site is not using HTTPS. This is required for production use.', 'zero-trust-login-for-cloudflare');
         }
 
         // Check encryption
         if (!$this->security->is_encryption_available()) {
-            $warnings[] = __('OpenSSL is not available. Client secrets are stored with basic obfuscation only.', 'cf-zero-trust');
+            $warnings[] = __('OpenSSL is not available. Client secrets are stored with basic obfuscation only.', 'zero-trust-login-for-cloudflare');
         }
 
         // Return results (HTML-escape for XSS prevention)
         if (!empty($issues)) {
             wp_send_json_error(array(
-                'message' => __('Connection test failed. Please fix the following issues:', 'cf-zero-trust'),
+                'message' => __('Connection test failed. Please fix the following issues:', 'zero-trust-login-for-cloudflare'),
                 'issues' => array_map('esc_html', $issues),
                 'warnings' => array_map('esc_html', $warnings)
             ));
         } elseif (!empty($warnings)) {
             wp_send_json_success(array(
-                'message' => __('Connection test passed with warnings:', 'cf-zero-trust'),
+                'message' => __('Connection test passed with warnings:', 'zero-trust-login-for-cloudflare'),
                 'warnings' => array_map('esc_html', $warnings)
             ));
         } else {
             wp_send_json_success(array(
-                'message' => __('Connection test passed! Your configuration looks good.', 'cf-zero-trust'),
+                'message' => __('Connection test passed! Your configuration looks good.', 'zero-trust-login-for-cloudflare'),
                 'details' => array(
-                    __('Team domain is reachable', 'cf-zero-trust'),
-                    __('Discovery endpoint is valid', 'cf-zero-trust'),
-                    __('All required fields are configured', 'cf-zero-trust')
+                    __('Team domain is reachable', 'zero-trust-login-for-cloudflare'),
+                    __('Discovery endpoint is valid', 'zero-trust-login-for-cloudflare'),
+                    __('All required fields are configured', 'zero-trust-login-for-cloudflare')
                 )
             ));
         }
@@ -1108,11 +1112,11 @@ class CFZT_Admin {
         
         wp_localize_script('cfzt-admin', 'cfztAdmin', array(
             'nonce' => wp_create_nonce('cfzt_check_updates'),
-            'checkingText' => __('Checking...', 'cf-zero-trust'),
-            'errorText' => __('Error checking for updates. Please try again.', 'cf-zero-trust'),
-            'updateNowText' => __('Update Now', 'cf-zero-trust'),
-            'showDetailsText' => __('Show Details', 'cf-zero-trust'),
-            'hideDetailsText' => __('Hide Details', 'cf-zero-trust')
+            'checkingText' => __('Checking...', 'zero-trust-login-for-cloudflare'),
+            'errorText' => __('Error checking for updates. Please try again.', 'zero-trust-login-for-cloudflare'),
+            'updateNowText' => __('Update Now', 'zero-trust-login-for-cloudflare'),
+            'showDetailsText' => __('Show Details', 'zero-trust-login-for-cloudflare'),
+            'hideDetailsText' => __('Hide Details', 'zero-trust-login-for-cloudflare')
         ));
         
         // Add inline CSS for update check status and user column
@@ -1163,18 +1167,18 @@ class CFZT_Admin {
      */
     public function ajax_check_for_updates() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_check_updates')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_check_updates')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
         
         // Check permissions
         if (!current_user_can('update_plugins')) {
-            wp_send_json_error(__('You do not have permission to check for updates.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to check for updates.', 'zero-trust-login-for-cloudflare'));
         }
         
         // Check if GitHub updater is available
         if (!class_exists('CFZT_GitHub_Updater')) {
-            wp_send_json_error(__('Update checker is not available.', 'cf-zero-trust'));
+            wp_send_json_error(__('Update checker is not available.', 'zero-trust-login-for-cloudflare'));
         }
         
         // Get the updater instance
@@ -1192,7 +1196,8 @@ class CFZT_Admin {
             wp_send_json_success(array(
                 'hasUpdate' => false,
                 'message' => sprintf(
-                    __('No updates available. Current version: %s', 'cf-zero-trust'),
+                    /* translators: %s: installed plugin version */
+                    __('No updates available. Current version: %s', 'zero-trust-login-for-cloudflare'),
                     CFZT_PLUGIN_VERSION
                 )
             ));
@@ -1201,7 +1206,8 @@ class CFZT_Admin {
             wp_send_json_success(array(
                 'hasUpdate' => true,
                 'message' => sprintf(
-                    __('Update available! Version %s → %s', 'cf-zero-trust'),
+                    /* translators: 1: installed version, 2: available version */
+                    __('Update available! Version %1$s → %2$s', 'zero-trust-login-for-cloudflare'),
                     $update_info['current_version'],
                     $update_info['latest_version']
                 ),
@@ -1213,7 +1219,8 @@ class CFZT_Admin {
             wp_send_json_success(array(
                 'hasUpdate' => false,
                 'message' => sprintf(
-                    __('You have the latest version (%s)', 'cf-zero-trust'),
+                    /* translators: %s: installed plugin version */
+                    __('You have the latest version (%s)', 'zero-trust-login-for-cloudflare'),
                     $update_info['current_version']
                 )
             ));
@@ -1225,25 +1232,25 @@ class CFZT_Admin {
      */
     public function ajax_get_logs() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_logs_action')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to view logs.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to view logs.', 'zero-trust-login-for-cloudflare'));
         }
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'cfzt_logs';
 
         // Get filter parameters
-        $level = isset($_POST['level']) ? sanitize_text_field($_POST['level']) : '';
-        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : '';
-        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : '';
-        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field($_POST['auth_method']) : '';
-        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field($_POST['success_filter']) : '';
+        $level = isset($_POST['level']) ? sanitize_text_field(wp_unslash($_POST['level'])) : '';
+        $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field(wp_unslash($_POST['date_from'])) : '';
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field(wp_unslash($_POST['date_to'])) : '';
+        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field(wp_unslash($_POST['auth_method'])) : '';
+        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field(wp_unslash($_POST['success_filter'])) : '';
         $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
         $per_page = 20;
         $offset = ($page - 1) * $per_page;
@@ -1285,28 +1292,17 @@ class CFZT_Admin {
 
         $where_clause = implode(' AND ', $where);
 
-        // Get total count
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders, PluginCheck.Security.DirectDB -- plugin's own log table; $where_clause is built above from fixed column comparisons with placeholders, and their values are bound here
         if (!empty($where_values)) {
-            $count_query = $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE $where_clause", $where_values);
+            $total = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_name} WHERE {$where_clause}", $where_values));
         } else {
-            $count_query = "SELECT COUNT(*) FROM $table_name WHERE $where_clause";
+            $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_name} WHERE {$where_clause}");
         }
-        $total = $wpdb->get_var($count_query);
-
-        // Get logs
-        if (!empty($where_values)) {
-            $logs_query = $wpdb->prepare(
-                "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC LIMIT %d OFFSET %d",
-                array_merge($where_values, array($per_page, $offset))
-            );
-        } else {
-            $logs_query = $wpdb->prepare(
-                "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC LIMIT %d OFFSET %d",
-                $per_page,
-                $offset
-            );
-        }
-        $logs = $wpdb->get_results($logs_query);
+        $logs = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table_name} WHERE {$where_clause} ORDER BY log_time DESC LIMIT %d OFFSET %d",
+            array_merge($where_values, array($per_page, $offset))
+        ));
+        // phpcs:enable
 
         wp_send_json_success(array(
             'logs' => $logs,
@@ -1322,25 +1318,25 @@ class CFZT_Admin {
      */
     public function ajax_export_logs() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
-            wp_die(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_logs_action')) {
+            wp_die(esc_html__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have permission to export logs.', 'cf-zero-trust'));
+            wp_die(esc_html__('You do not have permission to export logs.', 'zero-trust-login-for-cloudflare'));
         }
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'cfzt_logs';
 
         // Get filter parameters
-        $level = isset($_POST['level']) ? sanitize_text_field($_POST['level']) : '';
-        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : '';
-        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : '';
-        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field($_POST['auth_method']) : '';
-        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field($_POST['success_filter']) : '';
+        $level = isset($_POST['level']) ? sanitize_text_field(wp_unslash($_POST['level'])) : '';
+        $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field(wp_unslash($_POST['date_from'])) : '';
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field(wp_unslash($_POST['date_to'])) : '';
+        $auth_method = isset($_POST['auth_method']) ? sanitize_text_field(wp_unslash($_POST['auth_method'])) : '';
+        $success_filter = isset($_POST['success_filter']) ? sanitize_text_field(wp_unslash($_POST['success_filter'])) : '';
 
         // Build query (same as get_logs)
         $where = array('1=1');
@@ -1379,16 +1375,17 @@ class CFZT_Admin {
 
         $where_clause = implode(' AND ', $where);
 
-        // Get all matching logs
+        // Get all matching logs.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders, PluginCheck.Security.DirectDB -- plugin's own log table; $where_clause is built above from fixed column comparisons with placeholders, and their values are bound here
         if (!empty($where_values)) {
-            $logs_query = $wpdb->prepare("SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC", $where_values);
+            $logs = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table_name} WHERE {$where_clause} ORDER BY log_time DESC", $where_values), ARRAY_A);
         } else {
-            $logs_query = "SELECT * FROM $table_name WHERE $where_clause ORDER BY log_time DESC";
+            $logs = $wpdb->get_results("SELECT * FROM {$table_name} WHERE {$where_clause} ORDER BY log_time DESC", ARRAY_A);
         }
-        $logs = $wpdb->get_results($logs_query, ARRAY_A);
+        // phpcs:enable
 
         // Generate CSV
-        $filename = 'cfzt-logs-' . date('Y-m-d-His') . '.csv';
+        $filename = 'cfzt-logs-' . gmdate('Y-m-d-His') . '.csv';
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=' . $filename);
@@ -1417,7 +1414,7 @@ class CFZT_Admin {
             )));
         }
 
-        fclose($output);
+        fclose($output); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- php://output stream, not a file
         exit;
     }
 
@@ -1440,29 +1437,29 @@ class CFZT_Admin {
      */
     public function ajax_clear_logs() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_logs_action')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_logs_action')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to clear logs.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to clear logs.', 'zero-trust-login-for-cloudflare'));
         }
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'cfzt_logs';
 
         // Delete all logs
-        $deleted = $wpdb->query("TRUNCATE TABLE $table_name");
+        $deleted = $wpdb->query("TRUNCATE TABLE {$table_name}"); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- plugin's own log table, name built from $wpdb->prefix
 
         if ($deleted !== false) {
             CFZT_Logger::info('Authentication logs cleared by admin', array(
                 'admin_user' => wp_get_current_user()->user_login
             ));
 
-            wp_send_json_success(__('All logs have been cleared.', 'cf-zero-trust'));
+            wp_send_json_success(__('All logs have been cleared.', 'zero-trust-login-for-cloudflare'));
         } else {
-            wp_send_json_error(__('Failed to clear logs.', 'cf-zero-trust'));
+            wp_send_json_error(__('Failed to clear logs.', 'zero-trust-login-for-cloudflare'));
         }
     }
 
@@ -1478,7 +1475,7 @@ class CFZT_Admin {
         foreach ($columns as $key => $value) {
             $new_columns[$key] = $value;
             if ($key === 'email') {
-                $new_columns['cfzt_status'] = __('CF Zero Trust', 'cf-zero-trust');
+                $new_columns['cfzt_status'] = __('CF Zero Trust', 'zero-trust-login-for-cloudflare');
             }
         }
         return $new_columns;
@@ -1507,17 +1504,17 @@ class CFZT_Admin {
         $output = '<div class="cfzt-user-status">';
         $output .= '<span class="cfzt-badge cfzt-badge-active">';
         $output .= '<span class="dashicons dashicons-cloud" style="font-size: 14px; width: 14px; height: 14px; margin-right: 3px;"></span>';
-        $output .= __('Active', 'cf-zero-trust');
+        $output .= __('Active', 'zero-trust-login-for-cloudflare');
         $output .= '</span>';
 
         if ($auth_method) {
             $method_label = strtoupper($auth_method);
-            $output .= '<br><small style="color: #666;">' . sprintf(__('Method: %s', 'cf-zero-trust'), $method_label) . '</small>';
+            $output .= '<br><small style="color: #666;">' . sprintf(/* translators: %s: authentication method name */ __('Method: %s', 'zero-trust-login-for-cloudflare'), esc_html($method_label)) . '</small>';
         }
 
         if ($last_login) {
             $last_login_formatted = human_time_diff(strtotime($last_login), current_time('timestamp'));
-            $output .= '<br><small style="color: #999;">' . sprintf(__('Last login: %s ago', 'cf-zero-trust'), $last_login_formatted) . '</small>';
+            $output .= '<br><small style="color: #999;">' . sprintf(/* translators: %s: human-readable time span, e.g. "3 hours" */ __('Last login: %s ago', 'zero-trust-login-for-cloudflare'), esc_html($last_login_formatted)) . '</small>';
         }
 
         $output .= '</div>';
@@ -1563,6 +1560,7 @@ class CFZT_Admin {
         global $wpdb;
 
         // Count CF Zero Trust users
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one COUNT over usermeta for the list-table view link
         $count = $wpdb->get_var(
             "SELECT COUNT(DISTINCT user_id)
              FROM {$wpdb->usermeta}
@@ -1572,7 +1570,7 @@ class CFZT_Admin {
 
         if ($count > 0) {
             $class = '';
-            if (isset($_GET['cfzt_users']) && $_GET['cfzt_users'] === '1') {
+            if (isset($_GET['cfzt_users']) && '1' === sanitize_key(wp_unslash($_GET['cfzt_users']))) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view filter on the users list
                 $class = 'current';
             }
 
@@ -1581,7 +1579,7 @@ class CFZT_Admin {
                 '<a href="%s" class="%s">%s <span class="count">(%d)</span></a>',
                 esc_url($url),
                 $class,
-                __('CF Zero Trust Users', 'cf-zero-trust'),
+                __('CF Zero Trust Users', 'zero-trust-login-for-cloudflare'),
                 $count
             );
         }
@@ -1599,7 +1597,7 @@ class CFZT_Admin {
             return;
         }
 
-        if (isset($_GET['cfzt_users']) && $_GET['cfzt_users'] === '1') {
+        if (isset($_GET['cfzt_users']) && '1' === sanitize_key(wp_unslash($_GET['cfzt_users']))) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view filter on the users list
             $query->set('meta_key', 'cfzt_user');
             $query->set('meta_value', '1');
         }
@@ -1610,13 +1608,13 @@ class CFZT_Admin {
      */
     public function ajax_export_settings() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_import_export')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_import_export')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to export settings.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to export settings.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Get current settings
@@ -1646,7 +1644,7 @@ class CFZT_Admin {
         // Return JSON
         wp_send_json_success(array(
             'data' => $export_data,
-            'filename' => 'cfzt-settings-' . date('Y-m-d-His') . '.json'
+            'filename' => 'cfzt-settings-' . gmdate('Y-m-d-His') . '.json'
         ));
     }
 
@@ -1655,30 +1653,30 @@ class CFZT_Admin {
      */
     public function ajax_import_settings() {
         // Verify nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'cfzt_import_export')) {
-            wp_send_json_error(__('Security check failed.', 'cf-zero-trust'));
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'cfzt_import_export')) {
+            wp_send_json_error(__('Security check failed.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('You do not have permission to import settings.', 'cf-zero-trust'));
+            wp_send_json_error(__('You do not have permission to import settings.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Get import data
         if (empty($_POST['import_data'])) {
-            wp_send_json_error(__('No import data provided.', 'cf-zero-trust'));
+            wp_send_json_error(__('No import data provided.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Decode JSON
-        $import_data = json_decode(stripslashes($_POST['import_data']), true);
+        $import_data = json_decode(wp_unslash($_POST['import_data']), true); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON document: decoded, structure-checked and every field sanitized below
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            wp_send_json_error(__('Invalid JSON format.', 'cf-zero-trust'));
+            wp_send_json_error(__('Invalid JSON format.', 'zero-trust-login-for-cloudflare'));
         }
 
         // Validate structure
         if (!isset($import_data['settings']) || !is_array($import_data['settings'])) {
-            wp_send_json_error(__('Invalid import file structure.', 'cf-zero-trust'));
+            wp_send_json_error(__('Invalid import file structure.', 'zero-trust-login-for-cloudflare'));
         }
 
         $settings = $import_data['settings'];
@@ -1687,7 +1685,8 @@ class CFZT_Admin {
         $required_fields = array('auth_method', 'team_domain');
         foreach ($required_fields as $field) {
             if (!isset($settings[$field])) {
-                wp_send_json_error(sprintf(__('Missing required field: %s', 'cf-zero-trust'), $field));
+                /* translators: %s: settings field name */
+                wp_send_json_error(sprintf(__('Missing required field: %s', 'zero-trust-login-for-cloudflare'), $field));
             }
         }
 
@@ -1754,9 +1753,9 @@ class CFZT_Admin {
         ));
 
         if (!$secret_restored && '' === $sanitized['client_secret']) {
-            wp_send_json_success(__('Settings imported. This export did not include a client secret, so enter it in the OIDC settings before testing login.', 'cf-zero-trust'));
+            wp_send_json_success(__('Settings imported. This export did not include a client secret, so enter it in the OIDC settings before testing login.', 'zero-trust-login-for-cloudflare'));
         }
 
-        wp_send_json_success(__('Settings imported successfully!', 'cf-zero-trust'));
+        wp_send_json_success(__('Settings imported successfully!', 'zero-trust-login-for-cloudflare'));
     }
 }

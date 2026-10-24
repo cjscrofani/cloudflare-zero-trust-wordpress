@@ -1,5 +1,5 @@
 /**
- * Cloudflare Zero Trust Login Admin JavaScript
+ * Zero Trust Login for Cloudflare Admin JavaScript
  */
 (function($) {
     'use strict';

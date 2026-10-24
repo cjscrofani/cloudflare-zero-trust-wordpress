@@ -54,12 +54,14 @@ class CFZT_Setup {
      * Validate a token and return the accounts it can reach
      */
     public function ajax_connect() {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- authorize_request() verifies the nonce and capability or exits
         $token = $this->authorize_request();
 
         $account_id = isset($_POST['account_id'])
-            ? $this->sanitize_account_id(wp_unslash($_POST['account_id']))
+            ? $this->sanitize_account_id(sanitize_key(wp_unslash($_POST['account_id'])))
             : '';
 
+        // phpcs:enable
         $result = $this->provisioner->connect($token, $account_id);
 
         if (is_wp_error($result)) {
@@ -76,10 +78,11 @@ class CFZT_Setup {
      * Create the Access application and store its credentials
      */
     public function ajax_provision() {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- authorize_request() verifies the nonce and capability or exits
         $token = $this->authorize_request();
 
         $account_id = isset($_POST['account_id'])
-            ? $this->sanitize_account_id(wp_unslash($_POST['account_id']))
+            ? $this->sanitize_account_id(sanitize_key(wp_unslash($_POST['account_id'])))
             : '';
 
         $args = array(
@@ -87,10 +90,11 @@ class CFZT_Setup {
             'policy_mode'          => isset($_POST['policy_mode']) ? sanitize_key(wp_unslash($_POST['policy_mode'])) : CFZT_Provisioner::POLICY_EMAIL_DOMAIN,
             'policy_value'         => isset($_POST['policy_value']) ? sanitize_text_field(wp_unslash($_POST['policy_value'])) : '',
             'session_duration'     => isset($_POST['session_duration']) ? sanitize_text_field(wp_unslash($_POST['session_duration'])) : '',
-            'app_launcher_visible' => !empty($_POST['app_launcher_visible']) && 'false' !== $_POST['app_launcher_visible'],
-            'replace_existing'     => !empty($_POST['replace_existing']) && 'false' !== $_POST['replace_existing'],
+            'app_launcher_visible' => !empty($_POST['app_launcher_visible']) && 'false' !== sanitize_key(wp_unslash($_POST['app_launcher_visible'])),
+            'replace_existing'     => !empty($_POST['replace_existing']) && 'false' !== sanitize_key(wp_unslash($_POST['replace_existing'])),
         );
 
+        // phpcs:enable
         $result = $this->provisioner->provision($token, $account_id, $args);
 
         if (is_wp_error($result)) {
@@ -118,33 +122,33 @@ class CFZT_Setup {
         if (!check_ajax_referer(self::NONCE_ACTION, 'nonce', false)) {
             wp_send_json_error(array(
                 'code'    => 'cfzt_bad_nonce',
-                'message' => __('Security check failed. Reload the page and try again.', 'cf-zero-trust'),
+                'message' => __('Security check failed. Reload the page and try again.', 'zero-trust-login-for-cloudflare'),
             ));
         }
 
         if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
                 'code'    => 'cfzt_forbidden',
-                'message' => __('You do not have permission to run setup.', 'cf-zero-trust'),
+                'message' => __('You do not have permission to run setup.', 'zero-trust-login-for-cloudflare'),
             ));
         }
 
         // Not passed through sanitize_text_field: that would silently mangle a
         // mistyped token into a different-but-valid-looking string. Validate
         // the shape instead and reject anything unexpected.
-        $token = isset($_POST['token']) ? trim((string) wp_unslash($_POST['token'])) : '';
+        $token = isset($_POST['token']) ? trim((string) wp_unslash($_POST['token'])) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- validated against a strict shape below instead
 
         if ('' === $token) {
             wp_send_json_error(array(
                 'code'    => 'cfzt_no_token',
-                'message' => __('Paste your Cloudflare API token first.', 'cf-zero-trust'),
+                'message' => __('Paste your Cloudflare API token first.', 'zero-trust-login-for-cloudflare'),
             ));
         }
 
         if (!preg_match('/^[A-Za-z0-9_\-]{20,200}$/', $token)) {
             wp_send_json_error(array(
                 'code'    => 'cfzt_malformed_token',
-                'message' => __('That does not look like a Cloudflare API token. Copy the whole token, without surrounding quotes or spaces.', 'cf-zero-trust'),
+                'message' => __('That does not look like a Cloudflare API token. Copy the whole token, without surrounding quotes or spaces.', 'zero-trust-login-for-cloudflare'),
             ));
         }
 

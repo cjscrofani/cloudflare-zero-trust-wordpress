@@ -10,6 +10,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- included from a CFZT_Admin method, so these variables are local to that call
+
 // Get security status
 $security = new CFZT_Security();
 $security_status = $security->get_security_status();
@@ -538,8 +540,8 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
     <div class="cfzt-wizard-container">
         <!-- Header -->
         <div class="cfzt-wizard-header">
-            <h1><?php esc_html_e('Cloudflare Zero Trust Login', 'cf-zero-trust'); ?></h1>
-            <p><?php esc_html_e('Secure WordPress authentication with Cloudflare Zero Trust', 'cf-zero-trust'); ?></p>
+            <h1><?php esc_html_e('Zero Trust Login for Cloudflare', 'zero-trust-login-for-cloudflare'); ?></h1>
+            <p><?php esc_html_e('Secure WordPress authentication with Cloudflare Zero Trust', 'zero-trust-login-for-cloudflare'); ?></p>
         </div>
 
         <!-- Setup Progress Indicator -->
@@ -548,7 +550,7 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
             <div class="cfzt-progress-header">
                 <span class="cfzt-progress-title">
                     <span class="dashicons dashicons-admin-settings" style="font-size: 16px; width: 16px; height: 16px;"></span>
-                    <?php _e('Setup Progress', 'cf-zero-trust'); ?>
+                    <?php esc_html_e('Setup Progress', 'zero-trust-login-for-cloudflare'); ?>
                 </span>
                 <span class="cfzt-progress-percentage"><?php echo esc_html($setup_progress['percentage']); ?>%</span>
             </div>
@@ -558,11 +560,11 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
             <div class="cfzt-progress-details">
                 <span><?php
                     /* translators: 1: completed task count, 2: total task count */
-                    echo esc_html(sprintf(__('%1$d of %2$d tasks completed', 'cf-zero-trust'), $setup_progress['completed_count'], $setup_progress['total_count']));
+                    echo esc_html(sprintf(__('%1$d of %2$d tasks completed', 'zero-trust-login-for-cloudflare'), $setup_progress['completed_count'], $setup_progress['total_count']));
                 ?></span>
                 <?php if (!empty($setup_progress['incomplete'])): ?>
                 <button type="button" class="button-link cfzt-toggle-tasks">
-                    <?php _e('View remaining tasks', 'cf-zero-trust'); ?> ▼
+                    <?php esc_html_e('View remaining tasks', 'zero-trust-login-for-cloudflare'); ?> ▼
                 </button>
                 <?php endif; ?>
             </div>
@@ -579,15 +581,15 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
         <?php elseif ($setup_progress['percentage'] === 100): ?>
         <div class="cfzt-setup-complete">
             <span class="dashicons dashicons-yes-alt" style="color: #00a32a; font-size: 20px;"></span>
-            <strong><?php _e('Setup Complete!', 'cf-zero-trust'); ?></strong>
-            <span><?php _e('Your Cloudflare Zero Trust integration is fully configured.', 'cf-zero-trust'); ?></span>
+            <strong><?php esc_html_e('Setup Complete!', 'zero-trust-login-for-cloudflare'); ?></strong>
+            <span><?php esc_html_e('Your Cloudflare Zero Trust integration is fully configured.', 'zero-trust-login-for-cloudflare'); ?></span>
         </div>
         <?php endif; ?>
 
         <!-- Mode Toggle -->
         <div class="cfzt-wizard-mode-toggle">
             <button type="button" id="cfzt-toggle-mode" class="button">
-                <?php echo $is_configured ? __('Switch to Wizard Mode', 'cf-zero-trust') : __('Switch to Advanced Mode', 'cf-zero-trust'); ?>
+                <?php echo $is_configured ? esc_html__('Switch to Wizard Mode', 'zero-trust-login-for-cloudflare') : esc_html__('Switch to Advanced Mode', 'zero-trust-login-for-cloudflare'); ?>
             </button>
         </div>
 
@@ -596,13 +598,13 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
             <!-- Progress Tabs -->
             <div class="cfzt-wizard-tabs">
                 <div class="cfzt-wizard-tab active" data-step="1">
-                    <strong>1.</strong> <?php esc_html_e('Cloudflare Setup', 'cf-zero-trust'); ?>
+                    <strong>1.</strong> <?php esc_html_e('Cloudflare Setup', 'zero-trust-login-for-cloudflare'); ?>
                 </div>
                 <div class="cfzt-wizard-tab" data-step="2">
-                    <strong>2.</strong> <?php esc_html_e('Configure', 'cf-zero-trust'); ?>
+                    <strong>2.</strong> <?php esc_html_e('Configure', 'zero-trust-login-for-cloudflare'); ?>
                 </div>
                 <div class="cfzt-wizard-tab" data-step="3">
-                    <strong>3.</strong> <?php esc_html_e('Review', 'cf-zero-trust'); ?>
+                    <strong>3.</strong> <?php esc_html_e('Review', 'zero-trust-login-for-cloudflare'); ?>
                 </div>
             </div>
 
@@ -613,8 +615,8 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
 
                 <!-- Step 1: Cloudflare Setup Instructions -->
                 <div class="cfzt-wizard-step active" data-step="1">
-                    <h2 class="cfzt-step-title"><?php esc_html_e('Set Up Cloudflare Zero Trust', 'cf-zero-trust'); ?></h2>
-                    <p class="cfzt-step-description"><?php esc_html_e('Create the Access application automatically, or follow the manual steps in your Cloudflare dashboard.', 'cf-zero-trust'); ?></p>
+                    <h2 class="cfzt-step-title"><?php esc_html_e('Set Up Cloudflare Zero Trust', 'zero-trust-login-for-cloudflare'); ?></h2>
+                    <p class="cfzt-step-description"><?php esc_html_e('Create the Access application automatically, or follow the manual steps in your Cloudflare dashboard.', 'zero-trust-login-for-cloudflare'); ?></p>
 
                     <!-- OIDC Instructions -->
                     <div id="cfzt-step2-oidc">
@@ -624,29 +626,29 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                         <div class="cfzt-success-box" id="cfzt-provisioned-state">
                             <h3 style="margin-top: 0;">
                                 <span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span>
-                                <?php esc_html_e('Connected to Cloudflare', 'cf-zero-trust'); ?>
+                                <?php esc_html_e('Connected to Cloudflare', 'zero-trust-login-for-cloudflare'); ?>
                             </h3>
                             <p style="margin: 0 0 10px;">
-                                <?php esc_html_e('This plugin created the Access application for this site. There is nothing to do here unless you want to start over.', 'cf-zero-trust'); ?>
+                                <?php esc_html_e('This plugin created the Access application for this site. There is nothing to do here unless you want to start over.', 'zero-trust-login-for-cloudflare'); ?>
                             </p>
                             <ul style="margin: 0 0 10px 20px; list-style: disc;">
-                                <li><?php esc_html_e('Team domain:', 'cf-zero-trust'); ?> <code><?php echo esc_html($options['team_domain'] ?? ''); ?></code></li>
-                                <li><?php esc_html_e('Application ID:', 'cf-zero-trust'); ?> <code><?php echo esc_html($options['provisioned_app_id']); ?></code></li>
+                                <li><?php esc_html_e('Team domain:', 'zero-trust-login-for-cloudflare'); ?> <code><?php echo esc_html($options['team_domain'] ?? ''); ?></code></li>
+                                <li><?php esc_html_e('Application ID:', 'zero-trust-login-for-cloudflare'); ?> <code><?php echo esc_html($options['provisioned_app_id']); ?></code></li>
                                 <?php if (!empty($options['provisioned_account_id'])) : ?>
-                                <li><?php esc_html_e('Cloudflare account:', 'cf-zero-trust'); ?> <code><?php echo esc_html($options['provisioned_account_id']); ?></code></li>
+                                <li><?php esc_html_e('Cloudflare account:', 'zero-trust-login-for-cloudflare'); ?> <code><?php echo esc_html($options['provisioned_account_id']); ?></code></li>
                                 <?php endif; ?>
                                 <?php if (!empty($options['provisioned_at'])) : ?>
                                 <li><?php
                                     /* translators: %s: date and time */
-                                    echo esc_html(sprintf(__('Created: %s', 'cf-zero-trust'), mysql2date(get_option('date_format') . ' ' . get_option('time_format'), $options['provisioned_at'])));
+                                    echo esc_html(sprintf(__('Created: %s', 'zero-trust-login-for-cloudflare'), mysql2date(get_option('date_format') . ' ' . get_option('time_format'), $options['provisioned_at'])));
                                 ?></li>
                                 <?php endif; ?>
                             </ul>
                             <p style="margin: 0;">
                                 <button type="button" class="button" id="cfzt-reprovision-btn">
-                                    <?php esc_html_e('Run automatic setup again', 'cf-zero-trust'); ?>
+                                    <?php esc_html_e('Run automatic setup again', 'zero-trust-login-for-cloudflare'); ?>
                                 </button>
-                                <span class="description" style="margin-left: 8px;"><?php esc_html_e('Replaces the Cloudflare application and issues new credentials.', 'cf-zero-trust'); ?></span>
+                                <span class="description" style="margin-left: 8px;"><?php esc_html_e('Replaces the Cloudflare application and issues new credentials.', 'zero-trust-login-for-cloudflare'); ?></span>
                             </p>
                         </div>
                         <?php endif; ?>
@@ -655,15 +657,15 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                         <div class="cfzt-auto-setup" id="cfzt-auto-setup" <?php echo $provisioned ? 'style="display:none;"' : ''; ?>>
                             <h3 style="margin-top: 0;">
                                 <span class="dashicons dashicons-superhero-alt" style="color: #f38020;"></span>
-                                <?php _e('Set this up for me', 'cf-zero-trust'); ?>
+                                <?php esc_html_e('Set this up for me', 'zero-trust-login-for-cloudflare'); ?>
                             </h3>
                             <p class="cfzt-step-description">
-                                <?php _e('Authorize once with a Cloudflare API token and this plugin will create the Access application, read your team domain, and fill in the credentials below. Nothing to copy by hand.', 'cf-zero-trust'); ?>
+                                <?php esc_html_e('Authorize once with a Cloudflare API token and this plugin will create the Access application, read your team domain, and fill in the credentials below. Nothing to copy by hand.', 'zero-trust-login-for-cloudflare'); ?>
                             </p>
 
                             <?php if ($constants_defined) : ?>
                             <div class="cfzt-warning-box">
-                                <?php echo wp_kses_post(__('<strong>Automatic setup is unavailable.</strong> <code>CFZT_CLIENT_ID</code> or <code>CFZT_CLIENT_SECRET</code> is defined in <code>wp-config.php</code>, and those values override anything saved here. Cloudflare shows a new client secret exactly once, so provisioning now would create an application whose secret could never be stored. Remove the constants first, or create the application manually and update them.', 'cf-zero-trust')); ?>
+                                <?php echo wp_kses_post(__('<strong>Automatic setup is unavailable.</strong> <code>CFZT_CLIENT_ID</code> or <code>CFZT_CLIENT_SECRET</code> is defined in <code>wp-config.php</code>, and those values override anything saved here. Cloudflare shows a new client secret exactly once, so provisioning now would create an application whose secret could never be stored. Remove the constants first, or create the application manually and update them.', 'zero-trust-login-for-cloudflare')); ?>
                             </div>
                             <?php endif; ?>
 
@@ -674,30 +676,30 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                                        target="_blank" rel="noopener noreferrer"
                                        class="button button-secondary">
                                         <span class="dashicons dashicons-external" style="margin-top: 3px;"></span>
-                                        <?php _e('1. Create a token on Cloudflare', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('1. Create a token on Cloudflare', 'zero-trust-login-for-cloudflare'); ?>
                                     </a>
                                 </p>
                                 <p class="description">
-                                    <?php _e('Opens Cloudflare with the required permissions preselected. Click <strong>Continue to summary</strong>, then <strong>Create Token</strong>, and copy the token it shows you.', 'cf-zero-trust'); ?>
+                                    <?php echo wp_kses_post(__('Opens Cloudflare with the required permissions preselected. Click <strong>Continue to summary</strong>, then <strong>Create Token</strong>, and copy the token it shows you.', 'zero-trust-login-for-cloudflare')); ?>
                                 </p>
                                 <details style="margin: 10px 0;">
-                                    <summary style="cursor: pointer;"><?php _e('Permissions this token needs, if you prefer to build it yourself', 'cf-zero-trust'); ?></summary>
+                                    <summary style="cursor: pointer;"><?php esc_html_e('Permissions this token needs, if you prefer to build it yourself', 'zero-trust-login-for-cloudflare'); ?></summary>
                                     <ul style="margin: 10px 0 0 20px; list-style: disc;">
-                                        <li><code><?php _e('Account → Access: Apps and Policies → Edit', 'cf-zero-trust'); ?></code></li>
-                                        <li><code><?php _e('Account → Access: Organizations, Identity Providers, and Groups → Read', 'cf-zero-trust'); ?></code></li>
-                                        <li><code><?php _e('Account → Account Settings → Read', 'cf-zero-trust'); ?></code></li>
+                                        <li><code><?php esc_html_e('Account → Access: Apps and Policies → Edit', 'zero-trust-login-for-cloudflare'); ?></code></li>
+                                        <li><code><?php esc_html_e('Account → Access: Organizations, Identity Providers, and Groups → Read', 'zero-trust-login-for-cloudflare'); ?></code></li>
+                                        <li><code><?php esc_html_e('Account → Account Settings → Read', 'zero-trust-login-for-cloudflare'); ?></code></li>
                                     </ul>
                                 </details>
 
                                 <div class="cfzt-form-group" style="margin-top: 15px;">
-                                    <label for="cfzt-cf-token"><?php _e('2. Paste your API token', 'cf-zero-trust'); ?></label>
+                                    <label for="cfzt-cf-token"><?php esc_html_e('2. Paste your API token', 'zero-trust-login-for-cloudflare'); ?></label>
                                     <input type="password" id="cfzt-cf-token" class="regular-text" autocomplete="off"
-                                           spellcheck="false" placeholder="<?php esc_attr_e('Cloudflare API token', 'cf-zero-trust'); ?>">
+                                           spellcheck="false" placeholder="<?php esc_attr_e('Cloudflare API token', 'zero-trust-login-for-cloudflare'); ?>">
                                     <button type="button" class="button button-primary" id="cfzt-connect-btn">
-                                        <?php _e('Connect', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('Connect', 'zero-trust-login-for-cloudflare'); ?>
                                     </button>
                                     <p class="description">
-                                        <?php _e('The token is used for this setup only. It is never saved to your database. You can delete it in Cloudflare as soon as setup finishes.', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('The token is used for this setup only. It is never saved to your database. You can delete it in Cloudflare as soon as setup finishes.', 'zero-trust-login-for-cloudflare'); ?>
                                     </p>
                                 </div>
                             </div>
@@ -705,28 +707,28 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                             <!-- Phase 2: choose account + policy -->
                             <div id="cfzt-auto-phase-configure" style="display: none;">
                                 <div class="cfzt-form-group" id="cfzt-account-wrap">
-                                    <label for="cfzt-cf-account"><?php _e('Cloudflare account', 'cf-zero-trust'); ?></label>
+                                    <label for="cfzt-cf-account"><?php esc_html_e('Cloudflare account', 'zero-trust-login-for-cloudflare'); ?></label>
                                     <select id="cfzt-cf-account" class="regular-text"></select>
                                 </div>
 
                                 <div class="cfzt-form-group">
-                                    <label for="cfzt-app-name"><?php _e('Application name', 'cf-zero-trust'); ?></label>
+                                    <label for="cfzt-app-name"><?php esc_html_e('Application name', 'zero-trust-login-for-cloudflare'); ?></label>
                                     <input type="text" id="cfzt-app-name" class="regular-text"
-                                           value="<?php echo esc_attr(sprintf(__('%s (WordPress)', 'cf-zero-trust'), wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES))); ?>">
-                                    <p class="description"><?php _e('How the application will appear in your Cloudflare dashboard.', 'cf-zero-trust'); ?></p>
+                                           value="<?php /* translators: %s: site name */ echo esc_attr(sprintf(__('%s (WordPress)', 'zero-trust-login-for-cloudflare'), wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES))); ?>">
+                                    <p class="description"><?php esc_html_e('How the application will appear in your Cloudflare dashboard.', 'zero-trust-login-for-cloudflare'); ?></p>
                                 </div>
 
                                 <div class="cfzt-form-group">
-                                    <label for="cfzt-policy-mode"><?php _e('Who should be allowed to log in?', 'cf-zero-trust'); ?></label>
+                                    <label for="cfzt-policy-mode"><?php esc_html_e('Who should be allowed to log in?', 'zero-trust-login-for-cloudflare'); ?></label>
                                     <select id="cfzt-policy-mode" class="regular-text">
-                                        <option value="email_domain"><?php _e('Anyone with an email at these domains', 'cf-zero-trust'); ?></option>
-                                        <option value="emails"><?php _e('Only these specific email addresses', 'cf-zero-trust'); ?></option>
-                                        <option value="everyone"><?php _e('Anyone who reaches my identity provider', 'cf-zero-trust'); ?></option>
+                                        <option value="email_domain"><?php esc_html_e('Anyone with an email at these domains', 'zero-trust-login-for-cloudflare'); ?></option>
+                                        <option value="emails"><?php esc_html_e('Only these specific email addresses', 'zero-trust-login-for-cloudflare'); ?></option>
+                                        <option value="everyone"><?php esc_html_e('Anyone who reaches my identity provider', 'zero-trust-login-for-cloudflare'); ?></option>
                                     </select>
                                 </div>
 
                                 <div class="cfzt-form-group" id="cfzt-policy-value-wrap">
-                                    <label for="cfzt-policy-value" id="cfzt-policy-value-label"><?php _e('Allowed email domains', 'cf-zero-trust'); ?></label>
+                                    <label for="cfzt-policy-value" id="cfzt-policy-value-label"><?php esc_html_e('Allowed email domains', 'zero-trust-login-for-cloudflare'); ?></label>
                                     <input type="text" id="cfzt-policy-value" class="regular-text"
                                            value="<?php
                                            $current_user_email = wp_get_current_user()->user_email;
@@ -734,28 +736,28 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                                            echo esc_attr(count($email_parts) === 2 ? $email_parts[1] : '');
                                            ?>">
                                     <p class="description">
-                                        <?php _e('Separate multiple entries with commas. This becomes the Access policy on the new application.', 'cf-zero-trust'); ?>
-                                        <strong><?php _e('Use the domain your identity provider issues for logins.', 'cf-zero-trust'); ?></strong>
-                                        <?php _e('It is prefilled from your WordPress email, which may not be the same thing: if your team signs in with Google Workspace accounts at another domain, enter that domain here or the first login will be denied.', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('Separate multiple entries with commas. This becomes the Access policy on the new application.', 'zero-trust-login-for-cloudflare'); ?>
+                                        <strong><?php esc_html_e('Use the domain your identity provider issues for logins.', 'zero-trust-login-for-cloudflare'); ?></strong>
+                                        <?php esc_html_e('It is prefilled from your WordPress email, which may not be the same thing: if your team signs in with Google Workspace accounts at another domain, enter that domain here or the first login will be denied.', 'zero-trust-login-for-cloudflare'); ?>
                                     </p>
                                 </div>
 
                                 <div class="cfzt-warning-box" id="cfzt-everyone-warning" style="display: none;">
-                                    <?php _e('<strong>Careful:</strong> this allows anyone your identity provider authenticates to reach your WordPress login. Only choose it if your identity provider is already restricted to the right people.', 'cf-zero-trust'); ?>
-                                    <?php _e('Combined with <strong>Auto-create Users</strong> (on by default) it also means every one of those people gets a WordPress account the first time they sign in. If Cloudflare\'s One-time PIN login is enabled for your team, that is anyone with an email address.', 'cf-zero-trust'); ?>
+                                    <?php echo wp_kses_post(__('<strong>Careful:</strong> this allows anyone your identity provider authenticates to reach your WordPress login. Only choose it if your identity provider is already restricted to the right people.', 'zero-trust-login-for-cloudflare')); ?>
+                                    <?php echo wp_kses_post(__('Combined with <strong>Auto-create Users</strong> (on by default) it also means every one of those people gets a WordPress account the first time they sign in. If Cloudflare\'s One-time PIN login is enabled for your team, that is anyone with an email address.', 'zero-trust-login-for-cloudflare')); ?>
                                 </div>
 
                                 <div class="cfzt-code-block">
-                                    <strong><?php _e('Redirect URL that will be registered:', 'cf-zero-trust'); ?></strong><br>
+                                    <strong><?php esc_html_e('Redirect URL that will be registered:', 'zero-trust-login-for-cloudflare'); ?></strong><br>
                                     <span id="cfzt-auto-redirect-uri"><?php echo esc_url(CFZT_Plugin::get_redirect_uri()); ?></span>
                                 </div>
 
                                 <p>
                                     <button type="button" class="button button-primary button-hero" id="cfzt-provision-btn">
-                                        <?php _e('Create application in Cloudflare', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('Create application in Cloudflare', 'zero-trust-login-for-cloudflare'); ?>
                                     </button>
                                     <button type="button" class="button button-link" id="cfzt-auto-back-btn">
-                                        <?php _e('Use a different token', 'cf-zero-trust'); ?>
+                                        <?php esc_html_e('Use a different token', 'zero-trust-login-for-cloudflare'); ?>
                                     </button>
                                 </p>
                             </div>
@@ -766,30 +768,30 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
 
                         <details class="cfzt-manual-setup" style="margin-top: 25px;">
                             <summary style="cursor: pointer; font-weight: 600;">
-                                <?php _e('Or set it up manually in the Cloudflare dashboard', 'cf-zero-trust'); ?>
+                                <?php esc_html_e('Or set it up manually in the Cloudflare dashboard', 'zero-trust-login-for-cloudflare'); ?>
                             </summary>
                         <div class="cfzt-info-box" style="margin-top: 15px;">
-                            <strong><?php esc_html_e('In your Cloudflare Zero Trust dashboard:', 'cf-zero-trust'); ?></strong>
+                            <strong><?php esc_html_e('In your Cloudflare Zero Trust dashboard:', 'zero-trust-login-for-cloudflare'); ?></strong>
                             <ol style="margin: 10px 0 0 20px;">
-                                <li><?php echo wp_kses_post(__('Go to <strong>Access → Applications</strong>', 'cf-zero-trust')); ?></li>
-                                <li><?php echo wp_kses_post(__('Click <strong>Add an application</strong>', 'cf-zero-trust')); ?></li>
-                                <li><?php echo wp_kses_post(__('Select <strong>SaaS</strong> application type', 'cf-zero-trust')); ?></li>
-                                <li><?php echo wp_kses_post(__('Choose <strong>OIDC</strong> as the protocol', 'cf-zero-trust')); ?></li>
-                                <li><?php echo wp_kses_post(__('Under <strong>Scopes</strong> keep <code>openid</code>, <code>email</code>, <code>profile</code> and <code>groups</code> selected', 'cf-zero-trust')); ?></li>
-                                <li><?php esc_html_e('Set the redirect URL to:', 'cf-zero-trust'); ?></li>
+                                <li><?php echo wp_kses_post(__('Go to <strong>Access → Applications</strong>', 'zero-trust-login-for-cloudflare')); ?></li>
+                                <li><?php echo wp_kses_post(__('Click <strong>Add an application</strong>', 'zero-trust-login-for-cloudflare')); ?></li>
+                                <li><?php echo wp_kses_post(__('Select <strong>SaaS</strong> application type', 'zero-trust-login-for-cloudflare')); ?></li>
+                                <li><?php echo wp_kses_post(__('Choose <strong>OIDC</strong> as the protocol', 'zero-trust-login-for-cloudflare')); ?></li>
+                                <li><?php echo wp_kses_post(__('Under <strong>Scopes</strong> keep <code>openid</code>, <code>email</code>, <code>profile</code> and <code>groups</code> selected', 'zero-trust-login-for-cloudflare')); ?></li>
+                                <li><?php esc_html_e('Set the redirect URL to:', 'zero-trust-login-for-cloudflare'); ?></li>
                             </ol>
                         </div>
 
                         <div class="cfzt-code-block" style="position: relative;">
-                            <strong><?php esc_html_e('Redirect URL:', 'cf-zero-trust'); ?></strong><br>
+                            <strong><?php esc_html_e('Redirect URL:', 'zero-trust-login-for-cloudflare'); ?></strong><br>
                             <span id="cfzt-redirect-url"><?php echo esc_url(CFZT_Plugin::get_redirect_uri()); ?></span>
                             <button type="button" class="button button-small cfzt-copy-btn" data-clipboard-target="cfzt-redirect-url" style="float: right; margin-top: -5px;">
-                                <span class="dashicons dashicons-clipboard" style="margin-top: 3px;"></span> <?php esc_html_e('Copy', 'cf-zero-trust'); ?>
+                                <span class="dashicons dashicons-clipboard" style="margin-top: 3px;"></span> <?php esc_html_e('Copy', 'zero-trust-login-for-cloudflare'); ?>
                             </button>
                         </div>
 
                         <div class="cfzt-info-box">
-                            <p style="margin: 0;"><?php esc_html_e('After creating the application, Cloudflare will provide you with credentials. Keep this page open - you\'ll need these in the next step.', 'cf-zero-trust'); ?></p>
+                            <p style="margin: 0;"><?php esc_html_e('After creating the application, Cloudflare will provide you with credentials. Keep this page open - you\'ll need these in the next step.', 'zero-trust-login-for-cloudflare'); ?></p>
                         </div>
                         </details>
                     </div>
@@ -798,146 +800,146 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
 
                 <!-- Step 2: Enter Credentials -->
                 <div class="cfzt-wizard-step" data-step="2">
-                    <h2 class="cfzt-step-title"><?php esc_html_e('Enter Your Credentials', 'cf-zero-trust'); ?></h2>
-                    <p class="cfzt-step-description"><?php esc_html_e('Copy the credentials from Cloudflare and paste them below.', 'cf-zero-trust'); ?></p>
+                    <h2 class="cfzt-step-title"><?php esc_html_e('Enter Your Credentials', 'zero-trust-login-for-cloudflare'); ?></h2>
+                    <p class="cfzt-step-description"><?php esc_html_e('Copy the credentials from Cloudflare and paste them below.', 'zero-trust-login-for-cloudflare'); ?></p>
 
                     <!-- OIDC Fields -->
                     <div id="cfzt-step3-oidc">
                         <div class="cfzt-form-group">
                             <label for="cfzt_team_domain">
-                                <?php esc_html_e('Team Domain *', 'cf-zero-trust'); ?>
-                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Your unique Cloudflare team domain. Found in your application\'s Issuer URL. Example: yourteam.cloudflareaccess.com', 'cf-zero-trust'); ?>">?</span>
+                                <?php esc_html_e('Team Domain *', 'zero-trust-login-for-cloudflare'); ?>
+                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Your unique Cloudflare team domain. Found in your application\'s Issuer URL. Example: yourteam.cloudflareaccess.com', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                             </label>
                             <input type="text" id="cfzt_team_domain" name="cfzt_settings[team_domain]" value="<?php echo esc_attr($options['team_domain'] ?? ''); ?>" class="regular-text" placeholder="yourteam.cloudflareaccess.com" required>
-                            <p class="description"><?php esc_html_e('Found in your Cloudflare Issuer URL (without https://)', 'cf-zero-trust'); ?></p>
+                            <p class="description"><?php esc_html_e('Found in your Cloudflare Issuer URL (without https://)', 'zero-trust-login-for-cloudflare'); ?></p>
                         </div>
 
                         <div class="cfzt-form-group">
                             <label for="cfzt_app_type">
-                                <?php esc_html_e('Application Type *', 'cf-zero-trust'); ?>
-                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('SaaS applications use Cloudflare\'s standard OIDC endpoints and are production-ready. Self-hosted is for custom OAuth2 implementations.', 'cf-zero-trust'); ?>">?</span>
+                                <?php esc_html_e('Application Type *', 'zero-trust-login-for-cloudflare'); ?>
+                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('SaaS applications use Cloudflare\'s standard OIDC endpoints and are production-ready. Self-hosted is for custom OAuth2 implementations.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                             </label>
                             <select id="cfzt_app_type" name="cfzt_settings[app_type]" class="regular-text">
-                                <option value="saas" <?php selected($options['app_type'] ?? 'saas', 'saas'); ?>><?php esc_html_e('SaaS (Recommended)', 'cf-zero-trust'); ?></option>
-                                <option value="self-hosted" <?php selected($options['app_type'] ?? '', 'self-hosted'); ?>><?php esc_html_e('Self-hosted', 'cf-zero-trust'); ?></option>
+                                <option value="saas" <?php selected($options['app_type'] ?? 'saas', 'saas'); ?>><?php esc_html_e('SaaS (Recommended)', 'zero-trust-login-for-cloudflare'); ?></option>
+                                <option value="self-hosted" <?php selected($options['app_type'] ?? '', 'self-hosted'); ?>><?php esc_html_e('Self-hosted', 'zero-trust-login-for-cloudflare'); ?></option>
                             </select>
-                            <p class="description"><?php esc_html_e('Match the type you selected in Cloudflare', 'cf-zero-trust'); ?></p>
+                            <p class="description"><?php esc_html_e('Match the type you selected in Cloudflare', 'zero-trust-login-for-cloudflare'); ?></p>
                         </div>
 
                         <div class="cfzt-form-group">
                             <label for="cfzt_client_id">
-                                <?php esc_html_e('Client ID *', 'cf-zero-trust'); ?>
-                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('A unique identifier for your application provided by Cloudflare. Looks like a long hexadecimal string.', 'cf-zero-trust'); ?>">?</span>
+                                <?php esc_html_e('Client ID *', 'zero-trust-login-for-cloudflare'); ?>
+                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('A unique identifier for your application provided by Cloudflare. Looks like a long hexadecimal string.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                             </label>
                             <input type="text" id="cfzt_client_id" name="cfzt_settings[client_id]" value="<?php echo esc_attr($options['client_id'] ?? ''); ?>" class="regular-text" required>
-                            <p class="description"><?php esc_html_e('From your Cloudflare application', 'cf-zero-trust'); ?></p>
+                            <p class="description"><?php esc_html_e('From your Cloudflare application', 'zero-trust-login-for-cloudflare'); ?></p>
                         </div>
 
                         <div class="cfzt-form-group">
                             <label for="cfzt_client_secret">
-                                <?php echo $has_saved_secret || $secret_from_constant ? esc_html__('Client Secret', 'cf-zero-trust') : esc_html__('Client Secret *', 'cf-zero-trust'); ?>
-                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('A secret key used to authenticate your application with Cloudflare. Keep this secure! It is encrypted in your database when OpenSSL is available, and is never shown again on this page.', 'cf-zero-trust'); ?>">?</span>
+                                <?php echo $has_saved_secret || $secret_from_constant ? esc_html__('Client Secret', 'zero-trust-login-for-cloudflare') : esc_html__('Client Secret *', 'zero-trust-login-for-cloudflare'); ?>
+                                <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('A secret key used to authenticate your application with Cloudflare. Keep this secure! It is encrypted in your database when OpenSSL is available, and is never shown again on this page.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                             </label>
                             <?php
                             // Never render the stored secret into the page.
                             if ($secret_from_constant) {
-                                $secret_placeholder = __('Set via CFZT_CLIENT_SECRET constant', 'cf-zero-trust');
+                                $secret_placeholder = __('Set via CFZT_CLIENT_SECRET constant', 'zero-trust-login-for-cloudflare');
                             } elseif ($has_saved_secret) {
-                                $secret_placeholder = __('Saved. Leave blank to keep the current secret.', 'cf-zero-trust');
+                                $secret_placeholder = __('Saved. Leave blank to keep the current secret.', 'zero-trust-login-for-cloudflare');
                             } else {
                                 $secret_placeholder = '';
                             }
                             ?>
                             <input type="password" id="cfzt_client_secret" name="cfzt_settings[client_secret]" value="" class="regular-text" autocomplete="new-password" placeholder="<?php echo esc_attr($secret_placeholder); ?>" data-has-secret="<?php echo $has_saved_secret || $secret_from_constant ? '1' : '0'; ?>" <?php echo $secret_from_constant ? 'readonly' : ''; ?> <?php echo $has_saved_secret || $secret_from_constant ? '' : 'required'; ?>>
-                            <p class="description"><?php echo $has_saved_secret ? esc_html__('A client secret is saved and encrypted. Enter a new one only to replace it.', 'cf-zero-trust') : esc_html__('From your Cloudflare application (will be encrypted)', 'cf-zero-trust'); ?></p>
+                            <p class="description"><?php echo $has_saved_secret ? esc_html__('A client secret is saved and encrypted. Enter a new one only to replace it.', 'zero-trust-login-for-cloudflare') : esc_html__('From your Cloudflare application (will be encrypted)', 'zero-trust-login-for-cloudflare'); ?></p>
                         </div>
                     </div>
 
 
                     <!-- Additional Settings -->
-                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;"><?php esc_html_e('User & Login Settings', 'cf-zero-trust'); ?></h3>
+                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;"><?php esc_html_e('User & Login Settings', 'zero-trust-login-for-cloudflare'); ?></h3>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_login_mode">
-                            <?php esc_html_e('Login Mode', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Primary mode disables WordPress password login, password resets and registration, so everyone signs in through Cloudflare (backup codes remain available for emergencies). Secondary mode keeps both options available.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Login Mode', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Primary mode disables WordPress password login, password resets and registration, so everyone signs in through Cloudflare (backup codes remain available for emergencies). Secondary mode keeps both options available.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <select id="cfzt_login_mode" name="cfzt_settings[login_mode]" class="regular-text">
-                            <option value="secondary" <?php selected($options['login_mode'] ?? 'secondary', 'secondary'); ?>><?php esc_html_e('Secondary - Show both login options', 'cf-zero-trust'); ?></option>
-                            <option value="primary" <?php selected($options['login_mode'] ?? '', 'primary'); ?>><?php esc_html_e('Primary - Cloudflare only', 'cf-zero-trust'); ?></option>
+                            <option value="secondary" <?php selected($options['login_mode'] ?? 'secondary', 'secondary'); ?>><?php esc_html_e('Secondary - Show both login options', 'zero-trust-login-for-cloudflare'); ?></option>
+                            <option value="primary" <?php selected($options['login_mode'] ?? '', 'primary'); ?>><?php esc_html_e('Primary - Cloudflare only', 'zero-trust-login-for-cloudflare'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Choose how users can log in to your site', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Choose how users can log in to your site', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_auto_create_users">
-                            <?php esc_html_e('Auto-create Users', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('When enabled, WordPress user accounts are automatically created for authenticated Cloudflare users on their first login. If disabled, only existing WordPress users can log in.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Auto-create Users', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('When enabled, WordPress user accounts are automatically created for authenticated Cloudflare users on their first login. If disabled, only existing WordPress users can log in.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <select id="cfzt_auto_create_users" name="cfzt_settings[auto_create_users]" class="regular-text">
-                            <option value="yes" <?php selected($options['auto_create_users'] ?? 'yes', 'yes'); ?>><?php esc_html_e('Yes', 'cf-zero-trust'); ?></option>
-                            <option value="no" <?php selected($options['auto_create_users'] ?? '', 'no'); ?>><?php esc_html_e('No', 'cf-zero-trust'); ?></option>
+                            <option value="yes" <?php selected($options['auto_create_users'] ?? 'yes', 'yes'); ?>><?php esc_html_e('Yes', 'zero-trust-login-for-cloudflare'); ?></option>
+                            <option value="no" <?php selected($options['auto_create_users'] ?? '', 'no'); ?>><?php esc_html_e('No', 'zero-trust-login-for-cloudflare'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Automatically create WordPress users on first login', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Automatically create WordPress users on first login', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_default_role">
-                            <?php esc_html_e('Default User Role', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('New users created through Cloudflare authentication will be assigned this WordPress role. Choose carefully based on your security needs.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Default User Role', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('New users created through Cloudflare authentication will be assigned this WordPress role. Choose carefully based on your security needs.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <select id="cfzt_default_role" name="cfzt_settings[default_role]" class="regular-text">
                             <?php wp_dropdown_roles($options['default_role'] ?? 'subscriber'); ?>
                         </select>
-                        <p class="description"><?php esc_html_e('Role assigned to new users', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Role assigned to new users', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_enable_logging">
-                            <?php esc_html_e('Enable Logging', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Logs authentication attempts to your database for debugging and monitoring. Includes timestamp, user, IP address, and success status.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Enable Logging', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Logs authentication attempts to your database for debugging and monitoring. Includes timestamp, user, IP address, and success status.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <select id="cfzt_enable_logging" name="cfzt_settings[enable_logging]" class="regular-text">
-                            <option value="yes" <?php selected($options['enable_logging'] ?? 'no', 'yes'); ?>><?php esc_html_e('Yes', 'cf-zero-trust'); ?></option>
-                            <option value="no" <?php selected($options['enable_logging'] ?? '', 'no'); ?>><?php esc_html_e('No', 'cf-zero-trust'); ?></option>
+                            <option value="yes" <?php selected($options['enable_logging'] ?? 'no', 'yes'); ?>><?php esc_html_e('Yes', 'zero-trust-login-for-cloudflare'); ?></option>
+                            <option value="no" <?php selected($options['enable_logging'] ?? '', 'no'); ?>><?php esc_html_e('No', 'zero-trust-login-for-cloudflare'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Log authentication attempts for debugging', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Log authentication attempts for debugging', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <!-- Advanced Settings -->
-                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;"><?php esc_html_e('Advanced Settings', 'cf-zero-trust'); ?></h3>
+                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccd0d4; padding-bottom: 10px;"><?php esc_html_e('Advanced Settings', 'zero-trust-login-for-cloudflare'); ?></h3>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_email_domain_restrictions">
-                            <?php esc_html_e('Email Domain Restrictions', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Restrict Cloudflare logins to specific email domains. Checked on every login, for new and existing accounts alike. Enter one domain per line (e.g., example.com). Leave empty to allow all domains.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Email Domain Restrictions', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Restrict Cloudflare logins to specific email domains. Checked on every login, for new and existing accounts alike. Enter one domain per line (e.g., example.com). Leave empty to allow all domains.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <textarea id="cfzt_email_domain_restrictions" name="cfzt_settings[email_domain_restrictions]" rows="3" class="large-text" placeholder="example.com&#10;company.org"><?php echo esc_textarea($options['email_domain_restrictions'] ?? ''); ?></textarea>
-                        <p class="description"><?php _e('One domain per line. Only users with email addresses from these domains can log in through Cloudflare; this is checked on every login. Make sure your own domain is listed before enabling Primary mode.', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('One domain per line. Only users with email addresses from these domains can log in through Cloudflare; this is checked on every login. Make sure your own domain is listed before enabling Primary mode.', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_redirect_after_login">
-                            <?php esc_html_e('Redirect After Login', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Custom URL to redirect users after successful login. Leave empty to use WordPress default (wp-admin for admins, home for others).', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Redirect After Login', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Custom URL to redirect users after successful login. Leave empty to use WordPress default (wp-admin for admins, home for others).', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <input type="url" id="cfzt_redirect_after_login" name="cfzt_settings[redirect_after_login]" value="<?php echo esc_attr($options['redirect_after_login'] ?? ''); ?>" class="large-text" placeholder="<?php echo esc_attr(home_url()); ?>">
-                        <p class="description"><?php _e('Leave empty to use WordPress default redirect behavior.', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Leave empty to use WordPress default redirect behavior.', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label for="cfzt_redirect_after_logout">
-                            <?php esc_html_e('Redirect After Logout', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Custom URL to redirect users after logout. Leave empty to redirect to home page.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Redirect After Logout', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Custom URL to redirect users after logout. Leave empty to redirect to home page.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <input type="url" id="cfzt_redirect_after_logout" name="cfzt_settings[redirect_after_logout]" value="<?php echo esc_attr($options['redirect_after_logout'] ?? ''); ?>" class="large-text" placeholder="<?php echo esc_attr(home_url()); ?>">
-                        <p class="description"><?php _e('Leave empty to redirect to home page.', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Leave empty to redirect to home page.', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
 
                     <div class="cfzt-form-group">
                         <label>
-                            <?php esc_html_e('Role Mapping (Cloudflare Groups → WordPress Roles)', 'cf-zero-trust'); ?>
-                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Map identity-provider group names (sent by Cloudflare in the groups claim) to WordPress roles. Applied when an account is created and re-applied on every login for accounts this plugin created. Accounts you made by hand keep their role.', 'cf-zero-trust'); ?>">?</span>
+                            <?php esc_html_e('Role Mapping (Cloudflare Groups → WordPress Roles)', 'zero-trust-login-for-cloudflare'); ?>
+                            <span class="cfzt-help-icon" data-tooltip="<?php esc_attr_e('Map identity-provider group names (sent by Cloudflare in the groups claim) to WordPress roles. Applied when an account is created and re-applied on every login for accounts this plugin created. Accounts you made by hand keep their role.', 'zero-trust-login-for-cloudflare'); ?>">?</span>
                         </label>
                         <input type="hidden" name="cfzt_settings[role_mapping_submitted]" value="1">
                         <div id="cfzt-role-mappings">
@@ -949,7 +951,7 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                             foreach ($role_mappings as $index => $mapping):
                             ?>
                             <div class="cfzt-role-mapping-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-                                <input type="text" name="cfzt_settings[role_mapping][<?php echo (int) $index; ?>][group]" value="<?php echo esc_attr($mapping['group']); ?>" placeholder="<?php esc_attr_e('Cloudflare group name', 'cf-zero-trust'); ?>" class="regular-text" style="flex: 1;">
+                                <input type="text" name="cfzt_settings[role_mapping][<?php echo (int) $index; ?>][group]" value="<?php echo esc_attr($mapping['group']); ?>" placeholder="<?php esc_attr_e('Cloudflare group name', 'zero-trust-login-for-cloudflare'); ?>" class="regular-text" style="flex: 1;">
                                 <span>→</span>
                                 <select name="cfzt_settings[role_mapping][<?php echo (int) $index; ?>][role]" class="regular-text" style="flex: 1;">
                                     <?php
@@ -966,57 +968,57 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
                             <?php endforeach; ?>
                         </div>
                         <button type="button" id="cfzt-add-role-mapping" class="button button-secondary" style="margin-top: 10px;">
-                            <span class="dashicons dashicons-plus-alt"></span> <?php _e('Add Role Mapping', 'cf-zero-trust'); ?>
+                            <span class="dashicons dashicons-plus-alt"></span> <?php esc_html_e('Add Role Mapping', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
-                        <p class="description"><?php _e('Map Cloudflare Access group names to WordPress roles. First matching group wins.', 'cf-zero-trust'); ?></p>
+                        <p class="description"><?php esc_html_e('Map Cloudflare Access group names to WordPress roles. First matching group wins.', 'zero-trust-login-for-cloudflare'); ?></p>
                     </div>
                 </div>
 
                 <!-- Step 4: Review and Complete -->
                 <div class="cfzt-wizard-step" data-step="3">
-                    <h2 class="cfzt-step-title"><?php esc_html_e('Review Your Configuration', 'cf-zero-trust'); ?></h2>
-                    <p class="cfzt-step-description"><?php esc_html_e('Please review your settings before saving.', 'cf-zero-trust'); ?></p>
+                    <h2 class="cfzt-step-title"><?php esc_html_e('Review Your Configuration', 'zero-trust-login-for-cloudflare'); ?></h2>
+                    <p class="cfzt-step-description"><?php esc_html_e('Please review your settings before saving.', 'zero-trust-login-for-cloudflare'); ?></p>
 
                     <div class="cfzt-success-box">
-                        <h3 style="margin-top: 0;"><?php esc_html_e('Configuration Summary', 'cf-zero-trust'); ?></h3>
+                        <h3 style="margin-top: 0;"><?php esc_html_e('Configuration Summary', 'zero-trust-login-for-cloudflare'); ?></h3>
                         <ul class="cfzt-checklist" id="cfzt-review-list">
                             <!-- Will be populated by JavaScript -->
                         </ul>
                     </div>
 
                     <div class="cfzt-info-box">
-                        <strong><?php esc_html_e('Before Saving:', 'cf-zero-trust'); ?></strong>
-                        <p style="margin: 10px 0;"><?php esc_html_e('We recommend testing your connection to Cloudflare before saving:', 'cf-zero-trust'); ?></p>
+                        <strong><?php esc_html_e('Before Saving:', 'zero-trust-login-for-cloudflare'); ?></strong>
+                        <p style="margin: 10px 0;"><?php esc_html_e('We recommend testing your connection to Cloudflare before saving:', 'zero-trust-login-for-cloudflare'); ?></p>
                         <button type="button" id="cfzt-test-connection-wizard" class="button button-secondary" style="margin-bottom: 15px;">
-                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> <?php esc_html_e('Test Connection Now', 'cf-zero-trust'); ?>
+                            <span class="dashicons dashicons-yes-alt" style="margin-top: 3px;"></span> <?php esc_html_e('Test Connection Now', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                         <div id="cfzt-test-results-wizard" style="display: none;"></div>
                     </div>
 
                     <div class="cfzt-info-box">
-                        <strong><?php esc_html_e('Next Steps:', 'cf-zero-trust'); ?></strong>
+                        <strong><?php esc_html_e('Next Steps:', 'zero-trust-login-for-cloudflare'); ?></strong>
                         <ol style="margin: 10px 0 0 20px;">
-                            <li><?php esc_html_e('Test your connection (recommended)', 'cf-zero-trust'); ?></li>
-                            <li><?php esc_html_e('Click "Save Configuration" below', 'cf-zero-trust'); ?></li>
-                            <li><?php esc_html_e('Visit your WordPress login page', 'cf-zero-trust'); ?></li>
-                            <li><?php esc_html_e('Click "Login with Cloudflare Zero Trust"', 'cf-zero-trust'); ?></li>
-                            <li><?php esc_html_e('Test the authentication flow', 'cf-zero-trust'); ?></li>
+                            <li><?php esc_html_e('Test your connection (recommended)', 'zero-trust-login-for-cloudflare'); ?></li>
+                            <li><?php esc_html_e('Click "Save Configuration" below', 'zero-trust-login-for-cloudflare'); ?></li>
+                            <li><?php esc_html_e('Visit your WordPress login page', 'zero-trust-login-for-cloudflare'); ?></li>
+                            <li><?php esc_html_e('Click "Login with Cloudflare Zero Trust"', 'zero-trust-login-for-cloudflare'); ?></li>
+                            <li><?php esc_html_e('Test the authentication flow', 'zero-trust-login-for-cloudflare'); ?></li>
                         </ol>
                     </div>
 
                     <?php if (!$security_status['encryption_available']): ?>
                     <div class="cfzt-warning-box">
-                        <strong><?php esc_html_e('Security Notice:', 'cf-zero-trust'); ?></strong> <?php esc_html_e('OpenSSL is not available. Client secrets will be stored with basic obfuscation. Consider enabling OpenSSL for better security.', 'cf-zero-trust'); ?>
+                        <strong><?php esc_html_e('Security Notice:', 'zero-trust-login-for-cloudflare'); ?></strong> <?php esc_html_e('OpenSSL is not available. Client secrets will be stored with basic obfuscation. Consider enabling OpenSSL for better security.', 'zero-trust-login-for-cloudflare'); ?>
                     </div>
                     <?php endif; ?>
                 </div>
 
                 <!-- Wizard Actions -->
                 <div class="cfzt-wizard-actions">
-                    <button type="button" id="cfzt-prev-step" class="button" style="display: none;"><?php esc_html_e('Previous', 'cf-zero-trust'); ?></button>
+                    <button type="button" id="cfzt-prev-step" class="button" style="display: none;"><?php esc_html_e('Previous', 'zero-trust-login-for-cloudflare'); ?></button>
                     <div>
-                        <button type="button" id="cfzt-next-step" class="button button-primary"><?php esc_html_e('Next', 'cf-zero-trust'); ?></button>
-                        <?php submit_button(__('Save Configuration', 'cf-zero-trust'), 'primary', 'submit', false, array('id' => 'cfzt-save-btn', 'style' => 'display:none;')); ?>
+                        <button type="button" id="cfzt-next-step" class="button button-primary"><?php esc_html_e('Next', 'zero-trust-login-for-cloudflare'); ?></button>
+                        <?php submit_button(__('Save Configuration', 'zero-trust-login-for-cloudflare'), 'primary', 'submit', false, array('id' => 'cfzt-save-btn', 'style' => 'display:none;')); ?>
                     </div>
                 </div>
             </form>
@@ -1027,35 +1029,35 @@ $setup_progress = CFZT_Plugin::get_setup_progress();
             <form method="post" action="options.php" style="padding: 30px;">
                 <?php
                 settings_fields('cfzt_settings_group');
-                do_settings_sections('cf-zero-trust');
+                do_settings_sections('zero-trust-login-for-cloudflare');
                 submit_button();
                 ?>
             </form>
 
             <!-- Import/Export Settings -->
             <div style="padding: 0 30px 30px;">
-                <h2 style="border-top: 1px solid #ccd0d4; padding-top: 20px;"><?php _e('Import / Export Settings', 'cf-zero-trust'); ?></h2>
-                <p class="description"><?php _e('Export your configuration as a backup or to transfer to another site. Import a previously exported configuration file.', 'cf-zero-trust'); ?></p>
+                <h2 style="border-top: 1px solid #ccd0d4; padding-top: 20px;"><?php esc_html_e('Import / Export Settings', 'zero-trust-login-for-cloudflare'); ?></h2>
+                <p class="description"><?php esc_html_e('Export your configuration as a backup or to transfer to another site. Import a previously exported configuration file.', 'zero-trust-login-for-cloudflare'); ?></p>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
                     <!-- Export -->
                     <div class="cfzt-import-export-box">
-                        <h3><?php _e('Export Settings', 'cf-zero-trust'); ?></h3>
-                        <p><?php _e('Download your current configuration as a JSON file. The client secret is never included; enter it again after importing on another site.', 'cf-zero-trust'); ?></p>
+                        <h3><?php esc_html_e('Export Settings', 'zero-trust-login-for-cloudflare'); ?></h3>
+                        <p><?php esc_html_e('Download your current configuration as a JSON file. The client secret is never included; enter it again after importing on another site.', 'zero-trust-login-for-cloudflare'); ?></p>
                         <button type="button" id="cfzt-export-settings" class="button button-secondary">
                             <span class="dashicons dashicons-download" style="margin-top: 3px;"></span>
-                            <?php _e('Export Settings', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Export Settings', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                     </div>
 
                     <!-- Import -->
                     <div class="cfzt-import-export-box">
-                        <h3><?php _e('Import Settings', 'cf-zero-trust'); ?></h3>
-                        <p><?php _e('Upload a previously exported JSON file to restore settings. This will replace your current configuration.', 'cf-zero-trust'); ?></p>
+                        <h3><?php esc_html_e('Import Settings', 'zero-trust-login-for-cloudflare'); ?></h3>
+                        <p><?php esc_html_e('Upload a previously exported JSON file to restore settings. This will replace your current configuration.', 'zero-trust-login-for-cloudflare'); ?></p>
                         <input type="file" id="cfzt-import-file" accept=".json" style="margin-bottom: 10px;">
                         <button type="button" id="cfzt-import-settings" class="button button-secondary" disabled>
                             <span class="dashicons dashicons-upload" style="margin-top: 3px;"></span>
-                            <?php _e('Import Settings', 'cf-zero-trust'); ?>
+                            <?php esc_html_e('Import Settings', 'zero-trust-login-for-cloudflare'); ?>
                         </button>
                     </div>
                 </div>
@@ -1195,12 +1197,12 @@ jQuery(document).ready(function($) {
 
         try {
             document.execCommand('copy');
-            showToast('<?php echo esc_js(__('Copied to clipboard!', 'cf-zero-trust')); ?>', 'success');
+            showToast('<?php echo esc_js(__('Copied to clipboard!', 'zero-trust-login-for-cloudflare')); ?>', 'success');
 
             // Visual feedback on button
             var $btn = $(this);
             var originalHtml = $btn.html();
-            $btn.html('<span class="dashicons dashicons-yes" style="margin-top: 3px;"></span> <?php echo esc_js(__('Copied!', 'cf-zero-trust')); ?>');
+            $btn.html('<span class="dashicons dashicons-yes" style="margin-top: 3px;"></span> <?php echo esc_js(__('Copied!', 'zero-trust-login-for-cloudflare')); ?>');
             $btn.addClass('button-primary');
 
             setTimeout(function() {
@@ -1208,7 +1210,7 @@ jQuery(document).ready(function($) {
                 $btn.removeClass('button-primary');
             }, 2000);
         } catch (err) {
-            showToast('<?php echo esc_js(__('Failed to copy. Please copy manually.', 'cf-zero-trust')); ?>', 'error');
+            showToast('<?php echo esc_js(__('Failed to copy. Please copy manually.', 'zero-trust-login-for-cloudflare')); ?>', 'error');
         }
 
         $temp.remove();
@@ -1221,9 +1223,9 @@ jQuery(document).ready(function($) {
 
         var btn = $(this);
         if (btn.text().includes('Wizard')) {
-            btn.text('<?php _e('Switch to Advanced Mode', 'cf-zero-trust'); ?>');
+            btn.text('<?php echo esc_js(__('Switch to Advanced Mode', 'zero-trust-login-for-cloudflare')); ?>');
         } else {
-            btn.text('<?php _e('Switch to Wizard Mode', 'cf-zero-trust'); ?>');
+            btn.text('<?php echo esc_js(__('Switch to Wizard Mode', 'zero-trust-login-for-cloudflare')); ?>');
         }
     });
 
@@ -1232,9 +1234,9 @@ jQuery(document).ready(function($) {
         $('.cfzt-remaining-tasks').slideToggle();
         var btn = $(this);
         if (btn.text().includes('View')) {
-            btn.html('<?php _e('Hide remaining tasks', 'cf-zero-trust'); ?> ▲');
+            btn.html('<?php echo esc_js(__('Hide remaining tasks', 'zero-trust-login-for-cloudflare')); ?> ▲');
         } else {
-            btn.html('<?php _e('View remaining tasks', 'cf-zero-trust'); ?> ▼');
+            btn.html('<?php echo esc_js(__('View remaining tasks', 'zero-trust-login-for-cloudflare')); ?> ▼');
         }
     });
 
@@ -1370,17 +1372,17 @@ jQuery(document).ready(function($) {
     function validateStep(step) {
         if (step === 2) {
             if (!$('#cfzt_team_domain').val()) {
-                alert('<?php echo esc_js(__('Please enter your Team Domain', 'cf-zero-trust')); ?>');
+                alert('<?php echo esc_js(__('Please enter your Team Domain', 'zero-trust-login-for-cloudflare')); ?>');
                 return false;
             }
             if (!$('#cfzt_client_id').val()) {
-                alert('<?php echo esc_js(__('Please enter your Client ID', 'cf-zero-trust')); ?>');
+                alert('<?php echo esc_js(__('Please enter your Client ID', 'zero-trust-login-for-cloudflare')); ?>');
                 return false;
             }
             // An empty secret field means "keep the saved one" once a secret exists.
             var $secret = $('#cfzt_client_secret');
             if (!$secret.val() && $secret.data('has-secret') !== 1) {
-                alert('<?php echo esc_js(__('Please enter your Client Secret', 'cf-zero-trust')); ?>');
+                alert('<?php echo esc_js(__('Please enter your Client Secret', 'zero-trust-login-for-cloudflare')); ?>');
                 return false;
             }
         }
@@ -1399,21 +1401,21 @@ jQuery(document).ready(function($) {
         var clientId = $('#cfzt_client_id').val() || '';
         var $secret = $('#cfzt_client_secret');
         var secretState = $secret.val()
-            ? '<?php echo esc_js(__('New secret entered', 'cf-zero-trust')); ?>'
+            ? '<?php echo esc_js(__('New secret entered', 'zero-trust-login-for-cloudflare')); ?>'
             : ($secret.data('has-secret') === 1
-                ? '<?php echo esc_js(__('Keeping saved secret', 'cf-zero-trust')); ?>'
-                : '<?php echo esc_js(__('Not set', 'cf-zero-trust')); ?>');
+                ? '<?php echo esc_js(__('Keeping saved secret', 'zero-trust-login-for-cloudflare')); ?>'
+                : '<?php echo esc_js(__('Not set', 'zero-trust-login-for-cloudflare')); ?>');
 
-        row('<?php echo esc_js(__('Authentication Method', 'cf-zero-trust')); ?>', 'OIDC');
-        row('<?php echo esc_js(__('Team Domain', 'cf-zero-trust')); ?>', $('#cfzt_team_domain').val());
-        row('<?php echo esc_js(__('Application Type', 'cf-zero-trust')); ?>', $('#cfzt_app_type option:selected').text());
-        row('<?php echo esc_js(__('Client ID', 'cf-zero-trust')); ?>', clientId.length > 20 ? clientId.substring(0, 20) + '…' : clientId);
-        row('<?php echo esc_js(__('Client Secret', 'cf-zero-trust')); ?>', secretState);
-        row('<?php echo esc_js(__('Login Mode', 'cf-zero-trust')); ?>', $('#cfzt_login_mode option:selected').text());
-        row('<?php echo esc_js(__('Auto-create Users', 'cf-zero-trust')); ?>', $('#cfzt_auto_create_users').val() === 'yes'
-            ? '<?php echo esc_js(__('Enabled', 'cf-zero-trust')); ?>'
-            : '<?php echo esc_js(__('Disabled', 'cf-zero-trust')); ?>');
-        row('<?php echo esc_js(__('Default Role', 'cf-zero-trust')); ?>', $('#cfzt_default_role option:selected').text());
+        row('<?php echo esc_js(__('Authentication Method', 'zero-trust-login-for-cloudflare')); ?>', 'OIDC');
+        row('<?php echo esc_js(__('Team Domain', 'zero-trust-login-for-cloudflare')); ?>', $('#cfzt_team_domain').val());
+        row('<?php echo esc_js(__('Application Type', 'zero-trust-login-for-cloudflare')); ?>', $('#cfzt_app_type option:selected').text());
+        row('<?php echo esc_js(__('Client ID', 'zero-trust-login-for-cloudflare')); ?>', clientId.length > 20 ? clientId.substring(0, 20) + '…' : clientId);
+        row('<?php echo esc_js(__('Client Secret', 'zero-trust-login-for-cloudflare')); ?>', secretState);
+        row('<?php echo esc_js(__('Login Mode', 'zero-trust-login-for-cloudflare')); ?>', $('#cfzt_login_mode option:selected').text());
+        row('<?php echo esc_js(__('Auto-create Users', 'zero-trust-login-for-cloudflare')); ?>', $('#cfzt_auto_create_users').val() === 'yes'
+            ? '<?php echo esc_js(__('Enabled', 'zero-trust-login-for-cloudflare')); ?>'
+            : '<?php echo esc_js(__('Disabled', 'zero-trust-login-for-cloudflare')); ?>');
+        row('<?php echo esc_js(__('Default Role', 'zero-trust-login-for-cloudflare')); ?>', $('#cfzt_default_role option:selected').text());
     }
 
     // Initialize
@@ -1429,11 +1431,11 @@ jQuery(document).ready(function($) {
             if ($('#cfzt-wizard-mode').is(':visible')) {
                 if (currentStep === totalSteps) {
                     $('#cfzt-save-btn').click();
-                    showToast('<?php echo esc_js(__('Saving configuration...', 'cf-zero-trust')); ?>', 'success');
+                    showToast('<?php echo esc_js(__('Saving configuration...', 'zero-trust-login-for-cloudflare')); ?>', 'success');
                 }
             } else if ($('#cfzt-advanced-mode').is(':visible')) {
                 $('#cfzt-advanced-mode form').submit();
-                showToast('<?php echo esc_js(__('Saving configuration...', 'cf-zero-trust')); ?>', 'success');
+                showToast('<?php echo esc_js(__('Saving configuration...', 'zero-trust-login-for-cloudflare')); ?>', 'success');
             }
         }
 
@@ -1449,7 +1451,7 @@ jQuery(document).ready(function($) {
             keyboardHintShown = true;
             var hint = $('<div class="cfzt-toast" style="bottom: 80px; background: #2271b1;">' +
                 '<span class="dashicons dashicons-info" style="margin-top: 3px;"></span>' +
-                '<span><?php echo esc_js(__('Tip: Press <strong>Ctrl/Cmd + S</strong> to save', 'cf-zero-trust')); ?></span>' +
+                '<span><?php echo esc_js(__('Tip: Press <strong>Ctrl/Cmd + S</strong> to save', 'zero-trust-login-for-cloudflare')); ?></span>' +
                 '</div>');
             $('body').append(hint);
             setTimeout(function() {
@@ -1461,7 +1463,7 @@ jQuery(document).ready(function($) {
     // Test connection functionality
     function testConnection($button, $resultsContainer) {
         var originalHtml = $button.html();
-        $button.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="margin-top: 3px;"></span> <?php echo esc_js(__('Testing...', 'cf-zero-trust')); ?>');
+        $button.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="margin-top: 3px;"></span> <?php echo esc_js(__('Testing...', 'zero-trust-login-for-cloudflare')); ?>');
 
         if ($resultsContainer) {
             $resultsContainer.hide().html('');
@@ -1472,7 +1474,7 @@ jQuery(document).ready(function($) {
             type: 'POST',
             data: {
                 action: 'cfzt_test_connection',
-                nonce: '<?php echo wp_create_nonce('cfzt_test_connection'); ?>'
+                nonce: '<?php echo esc_js(wp_create_nonce('cfzt_test_connection')); ?>'
             },
             success: function(response) {
                 var html = '';
@@ -1491,7 +1493,7 @@ jQuery(document).ready(function($) {
 
                     if (response.data.warnings && response.data.warnings.length > 0) {
                         html += '<div style="margin-top: 10px; padding: 10px; background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107;">';
-                        html += '<strong>⚠ <?php echo esc_js(__('Warnings:', 'cf-zero-trust')); ?></strong><ul style="margin: 5px 0 0 20px;">';
+                        html += '<strong>⚠ <?php echo esc_js(__('Warnings:', 'zero-trust-login-for-cloudflare')); ?></strong><ul style="margin: 5px 0 0 20px;">';
                         response.data.warnings.forEach(function(warning) {
                             html += '<li>' + warning + '</li>';
                         });
@@ -1499,10 +1501,10 @@ jQuery(document).ready(function($) {
                     }
 
                     html += '</div>';
-                    showToast('<?php echo esc_js(__('Connection test passed!', 'cf-zero-trust')); ?>', 'success');
+                    showToast('<?php echo esc_js(__('Connection test passed!', 'zero-trust-login-for-cloudflare')); ?>', 'success');
                 } else {
                     html = '<div class="cfzt-warning-box" style="margin-top: 15px; background: #fcf2f2; border-left-color: #d63638;">';
-                    html += '<strong style="color: #d63638;">✗ ' + (response.data.message || '<?php echo esc_js(__('Connection test failed', 'cf-zero-trust')); ?>') + '</strong>';
+                    html += '<strong style="color: #d63638;">✗ ' + (response.data.message || '<?php echo esc_js(__('Connection test failed', 'zero-trust-login-for-cloudflare')); ?>') + '</strong>';
 
                     if (response.data.issues && response.data.issues.length > 0) {
                         html += '<ul style="margin: 10px 0 0 20px;">';
@@ -1514,7 +1516,7 @@ jQuery(document).ready(function($) {
 
                     if (response.data.warnings && response.data.warnings.length > 0) {
                         html += '<div style="margin-top: 10px; padding: 10px; background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107;">';
-                        html += '<strong>⚠ <?php echo esc_js(__('Additional warnings:', 'cf-zero-trust')); ?></strong><ul style="margin: 5px 0 0 20px;">';
+                        html += '<strong>⚠ <?php echo esc_js(__('Additional warnings:', 'zero-trust-login-for-cloudflare')); ?></strong><ul style="margin: 5px 0 0 20px;">';
                         response.data.warnings.forEach(function(warning) {
                             html += '<li>' + warning + '</li>';
                         });
@@ -1522,7 +1524,7 @@ jQuery(document).ready(function($) {
                     }
 
                     html += '</div>';
-                    showToast('<?php echo esc_js(__('Connection test failed', 'cf-zero-trust')); ?>', 'error');
+                    showToast('<?php echo esc_js(__('Connection test failed', 'zero-trust-login-for-cloudflare')); ?>', 'error');
                 }
 
                 if ($resultsContainer) {
@@ -1531,14 +1533,14 @@ jQuery(document).ready(function($) {
             },
             error: function() {
                 var html = '<div class="cfzt-warning-box" style="margin-top: 15px; background: #fcf2f2; border-left-color: #d63638;">';
-                html += '<strong style="color: #d63638;">✗ <?php echo esc_js(__('Connection test failed', 'cf-zero-trust')); ?></strong>';
-                html += '<p><?php echo esc_js(__('An unexpected error occurred. Please try again.', 'cf-zero-trust')); ?></p>';
+                html += '<strong style="color: #d63638;">✗ <?php echo esc_js(__('Connection test failed', 'zero-trust-login-for-cloudflare')); ?></strong>';
+                html += '<p><?php echo esc_js(__('An unexpected error occurred. Please try again.', 'zero-trust-login-for-cloudflare')); ?></p>';
                 html += '</div>';
 
                 if ($resultsContainer) {
                     $resultsContainer.html(html).slideDown();
                 }
-                showToast('<?php echo esc_js(__('Connection test failed', 'cf-zero-trust')); ?>', 'error');
+                showToast('<?php echo esc_js(__('Connection test failed', 'zero-trust-login-for-cloudflare')); ?>', 'error');
             },
             complete: function() {
                 $button.prop('disabled', false).html(originalHtml);
@@ -1586,52 +1588,52 @@ jQuery(document).ready(function($) {
         if (rules.teamDomain) {
             if (!value.match(/^[a-z0-9][a-z0-9-]*\.cloudflareaccess\.com$/i)) {
                 isValid = false;
-                message = '<?php echo esc_js(__('Should end with .cloudflareaccess.com', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Should end with .cloudflareaccess.com', 'zero-trust-login-for-cloudflare')); ?>';
             } else {
-                message = '<?php echo esc_js(__('Valid team domain format', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Valid team domain format', 'zero-trust-login-for-cloudflare')); ?>';
             }
         }
 
         if (rules.clientId) {
             if (value.length < 16) {
                 isValid = false;
-                message = '<?php echo esc_js(__('Client ID seems too short', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Client ID seems too short', 'zero-trust-login-for-cloudflare')); ?>';
             } else if (!value.match(/^[a-f0-9]+$/i)) {
                 isWarning = true;
-                message = '<?php echo esc_js(__('Client ID usually contains only hex characters', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Client ID usually contains only hex characters', 'zero-trust-login-for-cloudflare')); ?>';
             } else {
-                message = '<?php echo esc_js(__('Valid client ID format', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Valid client ID format', 'zero-trust-login-for-cloudflare')); ?>';
             }
         }
 
         if (rules.clientSecret) {
             if (value === '[SET VIA CONSTANT]') {
                 isWarning = true;
-                message = '<?php echo esc_js(__('Value set via constant (cannot be changed here)', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Value set via constant (cannot be changed here)', 'zero-trust-login-for-cloudflare')); ?>';
             } else if (value.length < 16) {
                 isValid = false;
-                message = '<?php echo esc_js(__('Client secret seems too short', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Client secret seems too short', 'zero-trust-login-for-cloudflare')); ?>';
             } else {
-                message = '<?php echo esc_js(__('Client secret looks good', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Client secret looks good', 'zero-trust-login-for-cloudflare')); ?>';
             }
         }
 
         if (rules.url) {
             try {
                 new URL(value);
-                message = '<?php echo esc_js(__('Valid URL format', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Valid URL format', 'zero-trust-login-for-cloudflare')); ?>';
             } catch (e) {
                 isValid = false;
-                message = '<?php echo esc_js(__('Please enter a valid URL', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Please enter a valid URL', 'zero-trust-login-for-cloudflare')); ?>';
             }
         }
 
         if (rules.alphanumeric) {
             if (!value.match(/^[a-z0-9-_]+$/i)) {
                 isValid = false;
-                message = '<?php echo esc_js(__('Should contain only letters, numbers, hyphens, and underscores', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Should contain only letters, numbers, hyphens, and underscores', 'zero-trust-login-for-cloudflare')); ?>';
             } else {
-                message = '<?php echo esc_js(__('Valid format', 'cf-zero-trust')); ?>';
+                message = '<?php echo esc_js(__('Valid format', 'zero-trust-login-for-cloudflare')); ?>';
             }
         }
 
@@ -1688,7 +1690,7 @@ jQuery(document).ready(function($) {
         <?php endforeach; ?>
 
         var newRow = '<div class="cfzt-role-mapping-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">' +
-            '<input type="text" name="cfzt_settings[role_mapping][' + roleMappingIndex + '][group]" placeholder="<?php echo esc_js(__('Cloudflare group name', 'cf-zero-trust')); ?>" class="regular-text" style="flex: 1;">' +
+            '<input type="text" name="cfzt_settings[role_mapping][' + roleMappingIndex + '][group]" placeholder="<?php echo esc_js(__('Cloudflare group name', 'zero-trust-login-for-cloudflare')); ?>" class="regular-text" style="flex: 1;">' +
             '<span>→</span>' +
             '<select name="cfzt_settings[role_mapping][' + roleMappingIndex + '][role]" class="regular-text" style="flex: 1;">' + roleOptions + '</select>' +
             '<button type="button" class="button cfzt-remove-mapping" style="color: #d63638;"><span class="dashicons dashicons-trash"></span></button>' +
@@ -1723,7 +1725,7 @@ jQuery(document).ready(function($) {
             importFileData = null;
             $('#cfzt-import-settings').prop('disabled', true);
             if (file) {
-                alert('<?php _e('Please select a valid JSON file.', 'cf-zero-trust'); ?>');
+                alert('<?php echo esc_js(__('Please select a valid JSON file.', 'zero-trust-login-for-cloudflare')); ?>');
             }
         }
     });
@@ -1733,14 +1735,14 @@ jQuery(document).ready(function($) {
         var $btn = $(this);
         var originalHtml = $btn.html();
 
-        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php _e('Exporting...', 'cf-zero-trust'); ?>');
+        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php echo esc_js(__('Exporting...', 'zero-trust-login-for-cloudflare')); ?>');
 
         $.ajax({
             url: ajaxurl,
             type: 'POST',
             data: {
                 action: 'cfzt_export_settings',
-                nonce: '<?php echo wp_create_nonce('cfzt_import_export'); ?>'
+                nonce: '<?php echo esc_js(wp_create_nonce('cfzt_import_export')); ?>'
             },
             success: function(response) {
                 if (response.success) {
@@ -1753,19 +1755,19 @@ jQuery(document).ready(function($) {
                     downloadAnchor.click();
                     downloadAnchor.remove();
 
-                    showToast('<?php _e('Settings exported successfully!', 'cf-zero-trust'); ?>', 'success');
+                    showToast('<?php echo esc_js(__('Settings exported successfully!', 'zero-trust-login-for-cloudflare')); ?>', 'success');
 
                     var html = '<div class="notice notice-success"><p>';
-                    html += '<strong><?php _e('Export Successful!', 'cf-zero-trust'); ?></strong><br>';
-                    html += '<?php _e('Your settings have been downloaded as', 'cf-zero-trust'); ?> <code>' + response.data.filename + '</code>';
+                    html += '<strong><?php echo esc_js(__('Export Successful!', 'zero-trust-login-for-cloudflare')); ?></strong><br>';
+                    html += '<?php echo esc_js(__('Your settings have been downloaded as', 'zero-trust-login-for-cloudflare')); ?> <code>' + response.data.filename + '</code>';
                     html += '</p></div>';
                     $('#cfzt-import-export-result').html(html);
                 } else {
-                    showToast(response.data || '<?php _e('Export failed', 'cf-zero-trust'); ?>', 'error');
+                    showToast(response.data || '<?php echo esc_js(__('Export failed', 'zero-trust-login-for-cloudflare')); ?>', 'error');
                 }
             },
             error: function() {
-                showToast('<?php _e('Export failed. Please try again.', 'cf-zero-trust'); ?>', 'error');
+                showToast('<?php echo esc_js(__('Export failed. Please try again.', 'zero-trust-login-for-cloudflare')); ?>', 'error');
             },
             complete: function() {
                 $btn.prop('disabled', false).html(originalHtml);
@@ -1776,35 +1778,35 @@ jQuery(document).ready(function($) {
     // Import settings
     $('#cfzt-import-settings').on('click', function() {
         if (!importFileData) {
-            alert('<?php _e('Please select a file first.', 'cf-zero-trust'); ?>');
+            alert('<?php echo esc_js(__('Please select a file first.', 'zero-trust-login-for-cloudflare')); ?>');
             return;
         }
 
-        if (!confirm('<?php _e('Warning: This will replace your current settings. Are you sure you want to continue?', 'cf-zero-trust'); ?>')) {
+        if (!confirm('<?php echo esc_js(__('Warning: This will replace your current settings. Are you sure you want to continue?', 'zero-trust-login-for-cloudflare')); ?>')) {
             return;
         }
 
         var $btn = $(this);
         var originalHtml = $btn.html();
 
-        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php _e('Importing...', 'cf-zero-trust'); ?>');
+        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> <?php echo esc_js(__('Importing...', 'zero-trust-login-for-cloudflare')); ?>');
 
         $.ajax({
             url: ajaxurl,
             type: 'POST',
             data: {
                 action: 'cfzt_import_settings',
-                nonce: '<?php echo wp_create_nonce('cfzt_import_export'); ?>',
+                nonce: '<?php echo esc_js(wp_create_nonce('cfzt_import_export')); ?>',
                 import_data: importFileData
             },
             success: function(response) {
                 if (response.success) {
-                    showToast('<?php _e('Settings imported successfully! Reloading page...', 'cf-zero-trust'); ?>', 'success');
+                    showToast('<?php echo esc_js(__('Settings imported successfully! Reloading page...', 'zero-trust-login-for-cloudflare')); ?>', 'success');
 
                     var html = '<div class="notice notice-success"><p>';
-                    html += '<strong><?php _e('Import Successful!', 'cf-zero-trust'); ?></strong><br>';
+                    html += '<strong><?php echo esc_js(__('Import Successful!', 'zero-trust-login-for-cloudflare')); ?></strong><br>';
                     html += response.data + '<br>';
-                    html += '<?php _e('The page will reload in 2 seconds...', 'cf-zero-trust'); ?>';
+                    html += '<?php echo esc_js(__('The page will reload in 2 seconds...', 'zero-trust-login-for-cloudflare')); ?>';
                     html += '</p></div>';
                     $('#cfzt-import-export-result').html(html);
 
@@ -1813,10 +1815,10 @@ jQuery(document).ready(function($) {
                         window.location.reload();
                     }, 2000);
                 } else {
-                    showToast(response.data || '<?php _e('Import failed', 'cf-zero-trust'); ?>', 'error');
+                    showToast(response.data || '<?php echo esc_js(__('Import failed', 'zero-trust-login-for-cloudflare')); ?>', 'error');
 
                     var html = '<div class="notice notice-error"><p>';
-                    html += '<strong><?php _e('Import Failed', 'cf-zero-trust'); ?></strong><br>';
+                    html += '<strong><?php echo esc_js(__('Import Failed', 'zero-trust-login-for-cloudflare')); ?></strong><br>';
                     html += response.data;
                     html += '</p></div>';
                     $('#cfzt-import-export-result').html(html);
@@ -1825,7 +1827,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                showToast('<?php _e('Import failed. Please try again.', 'cf-zero-trust'); ?>', 'error');
+                showToast('<?php echo esc_js(__('Import failed. Please try again.', 'zero-trust-login-for-cloudflare')); ?>', 'error');
                 $btn.prop('disabled', false).html(originalHtml);
             }
         });
@@ -1877,9 +1879,9 @@ jQuery(document).ready(function($) {
         $('#cfzt-everyone-warning').toggle(mode === 'everyone');
 
         if (mode === 'emails') {
-            $('#cfzt-policy-value-label').text('<?php echo esc_js(__('Allowed email addresses', 'cf-zero-trust')); ?>');
+            $('#cfzt-policy-value-label').text('<?php echo esc_js(__('Allowed email addresses', 'zero-trust-login-for-cloudflare')); ?>');
         } else {
-            $('#cfzt-policy-value-label').text('<?php echo esc_js(__('Allowed email domains', 'cf-zero-trust')); ?>');
+            $('#cfzt-policy-value-label').text('<?php echo esc_js(__('Allowed email domains', 'zero-trust-login-for-cloudflare')); ?>');
         }
     });
 
@@ -1889,12 +1891,12 @@ jQuery(document).ready(function($) {
         var token = $.trim($('#cfzt-cf-token').val());
 
         if (!token) {
-            cfztStatus('error', '<?php echo esc_js(__('Paste your Cloudflare API token first.', 'cf-zero-trust')); ?>');
+            cfztStatus('error', '<?php echo esc_js(__('Paste your Cloudflare API token first.', 'zero-trust-login-for-cloudflare')); ?>');
             return;
         }
 
         cfztClearStatus();
-        $btn.prop('disabled', true).text('<?php echo esc_js(__('Connecting…', 'cf-zero-trust')); ?>');
+        $btn.prop('disabled', true).text('<?php echo esc_js(__('Connecting…', 'zero-trust-login-for-cloudflare')); ?>');
 
         $.post(ajaxurl, {
             action: 'cfzt_connect_cloudflare',
@@ -1904,7 +1906,7 @@ jQuery(document).ready(function($) {
             if (!response || !response.success) {
                 var msg = (response && response.data && response.data.message)
                     ? response.data.message
-                    : '<?php echo esc_js(__('Could not connect to Cloudflare.', 'cf-zero-trust')); ?>';
+                    : '<?php echo esc_js(__('Could not connect to Cloudflare.', 'zero-trust-login-for-cloudflare')); ?>';
                 cfztStatus('error', msg);
                 return;
             }
@@ -1920,7 +1922,7 @@ jQuery(document).ready(function($) {
                     readyCount++;
                     label += ' — ' + account.team_domain;
                 } else {
-                    label += ' — <?php echo esc_js(__('no Zero Trust team domain', 'cf-zero-trust')); ?>';
+                    label += ' — <?php echo esc_js(__('no Zero Trust team domain', 'zero-trust-login-for-cloudflare')); ?>';
                 }
 
                 $('<option>')
@@ -1938,7 +1940,7 @@ jQuery(document).ready(function($) {
                         notices.push(account.name + ': ' + account.notice);
                     }
                 });
-                cfztStatus('error', '<?php echo esc_js(__('None of the accounts this token can reach have a Zero Trust team domain yet. Set one up in the Cloudflare Zero Trust dashboard, then connect again.', 'cf-zero-trust')); ?>', notices);
+                cfztStatus('error', '<?php echo esc_js(__('None of the accounts this token can reach have a Zero Trust team domain yet. Set one up in the Cloudflare Zero Trust dashboard, then connect again.', 'zero-trust-login-for-cloudflare')); ?>', notices);
                 return;
             }
 
@@ -1950,10 +1952,10 @@ jQuery(document).ready(function($) {
             $('#cfzt-account-wrap').toggle(accounts.length > 1);
 
             cfztStatus('info', accounts.length > 1
-                ? '<?php echo esc_js(__('Token accepted. Choose an account and confirm who should be able to log in.', 'cf-zero-trust')); ?>'
-                : '<?php echo esc_js(__('Token accepted. Confirm who should be able to log in.', 'cf-zero-trust')); ?>');
+                ? '<?php echo esc_js(__('Token accepted. Choose an account and confirm who should be able to log in.', 'zero-trust-login-for-cloudflare')); ?>'
+                : '<?php echo esc_js(__('Token accepted. Confirm who should be able to log in.', 'zero-trust-login-for-cloudflare')); ?>');
         }).fail(function() {
-            cfztStatus('error', '<?php echo esc_js(__('The request failed. Check your connection and try again.', 'cf-zero-trust')); ?>');
+            cfztStatus('error', '<?php echo esc_js(__('The request failed. Check your connection and try again.', 'zero-trust-login-for-cloudflare')); ?>');
         }).always(function() {
             $btn.prop('disabled', false).text(originalText);
         });
@@ -1987,7 +1989,7 @@ jQuery(document).ready(function($) {
         var originalText = $btn.text();
 
         cfztClearStatus();
-        $btn.prop('disabled', true).text('<?php echo esc_js(__('Creating application…', 'cf-zero-trust')); ?>');
+        $btn.prop('disabled', true).text('<?php echo esc_js(__('Creating application…', 'zero-trust-login-for-cloudflare')); ?>');
 
         $.post(ajaxurl, {
             action: 'cfzt_provision_app',
@@ -2001,7 +2003,7 @@ jQuery(document).ready(function($) {
         }).done(function(response) {
             if (!response || !response.success) {
                 var data = response && response.data ? response.data : {};
-                var msg = data.message || '<?php echo esc_js(__('Provisioning failed.', 'cf-zero-trust')); ?>';
+                var msg = data.message || '<?php echo esc_js(__('Provisioning failed.', 'zero-trust-login-for-cloudflare')); ?>';
 
                 // An existing app is recoverable: offer to replace it.
                 if (data.can_replace) {
@@ -2009,7 +2011,7 @@ jQuery(document).ready(function($) {
                     $('#cfzt-auto-status').append(
                         $('<p>').append(
                             $('<button type="button" class="button">')
-                                .text('<?php echo esc_js(__('Replace the existing application', 'cf-zero-trust')); ?>')
+                                .text('<?php echo esc_js(__('Replace the existing application', 'zero-trust-login-for-cloudflare')); ?>')
                                 .on('click', function() { cfztProvision(true); })
                         )
                     );
@@ -2032,29 +2034,29 @@ jQuery(document).ready(function($) {
             var warnings = result.warnings || [];
             cfztStatus(
                 'success',
-                '<?php echo esc_js(__('Done. The Access application was created and your credentials are saved.', 'cf-zero-trust')); ?>',
+                '<?php echo esc_js(__('Done. The Access application was created and your credentials are saved.', 'zero-trust-login-for-cloudflare')); ?>',
                 warnings
             );
 
             $('#cfzt-auto-status').append(
                 $('<p>').append(
                     $('<button type="button" class="button button-primary">')
-                        .text('<?php echo esc_js(__('Continue', 'cf-zero-trust')); ?>')
+                        .text('<?php echo esc_js(__('Continue', 'zero-trust-login-for-cloudflare')); ?>')
                         .on('click', function() { window.location.reload(); })
                 ).append(
                     $('<span style="margin-left:10px;">').text(
-                        '<?php echo esc_js(__('You can now delete the API token in Cloudflare — it is no longer needed.', 'cf-zero-trust')); ?>'
+                        '<?php echo esc_js(__('You can now delete the API token in Cloudflare — it is no longer needed.', 'zero-trust-login-for-cloudflare')); ?>'
                     )
                 )
             );
 
-            showToast('<?php echo esc_js(__('Cloudflare application created', 'cf-zero-trust')); ?>', 'success');
+            showToast('<?php echo esc_js(__('Cloudflare application created', 'zero-trust-login-for-cloudflare')); ?>', 'success');
 
             // Give the reader a moment with any warnings, then reload. Without
             // warnings there is nothing to read, so go straight away.
             setTimeout(function() { window.location.reload(); }, warnings.length ? 8000 : 1500);
         }).fail(function() {
-            cfztStatus('error', '<?php echo esc_js(__('The request failed. Check your connection and try again.', 'cf-zero-trust')); ?>');
+            cfztStatus('error', '<?php echo esc_js(__('The request failed. Check your connection and try again.', 'zero-trust-login-for-cloudflare')); ?>');
         }).always(function() {
             $btn.prop('disabled', false).text(originalText);
         });

@@ -34,9 +34,11 @@ class CFZT_Login_UI {
         // The URL is a local endpoint that mints per-browser state, so there
         // is no need to construct a second CFZT_Auth (which would register a
         // duplicate set of authentication hooks on every render).
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- login-page parameter, only ever passed through wp_validate_redirect()
         $redirect_to = !empty($_REQUEST['redirect_to'])
-            ? wp_validate_redirect((string) wp_unslash($_REQUEST['redirect_to']), '')
+            ? wp_validate_redirect(esc_url_raw(wp_unslash($_REQUEST['redirect_to'])), '')
             : '';
+        // phpcs:enable
         $auth_url = CFZT_Auth::get_login_start_url($redirect_to);
 
         if (empty($auth_url)) {

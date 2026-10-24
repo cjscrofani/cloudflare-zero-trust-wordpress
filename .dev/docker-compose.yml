@@ -1,4 +1,4 @@
-# Local test environment for the Cloudflare Zero Trust Login plugin.
+# Local test environment for the Zero Trust Login for Cloudflare plugin.
 #
 # Run everything through .dev/bin/dev rather than calling compose directly.
 # The plugin is bind-mounted from the repo root, so edits on the host are live
@@ -59,7 +59,7 @@ services:
     volumes:
       - wp:/var/www/html
       # Writable on purpose: the plugin regenerates assets/js/cfzt-admin.js.
-      - ../:/var/www/html/wp-content/plugins/cloudflare-zero-trust-login
+      - ../:/var/www/html/wp-content/plugins/zero-trust-login-for-cloudflare
 
   # One-shot WP-CLI runner: `.dev/bin/dev wp <args>`
   wpcli:
@@ -76,7 +76,7 @@ services:
       SITE_URL: ${SITE_URL:-https://cfzt.local}
     volumes:
       - wp:/var/www/html
-      - ../:/var/www/html/wp-content/plugins/cloudflare-zero-trust-login
+      - ../:/var/www/html/wp-content/plugins/zero-trust-login-for-cloudflare
     user: "33:33"
 
   # Optional: a real public HTTPS hostname, for the end-to-end login test.

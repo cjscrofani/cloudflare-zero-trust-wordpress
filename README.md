@@ -1,4 +1,7 @@
-# Cloudflare Zero Trust Login for WordPress
+# Zero Trust Login for Cloudflare
+
+Formerly *Cloudflare Zero Trust Login for WordPress*. The plugin was renamed in 2.1.0 for the
+WordPress plugin directory; existing installs update in place.
 
 [![Latest release](https://img.shields.io/github/v/release/cjscrofani/cloudflare-zero-trust-wordpress?label=release)](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases/latest)
 [![WordPress 5.0+](https://img.shields.io/badge/WordPress-5.0%2B-21759b)](#-requirements)
@@ -27,7 +30,8 @@ create that application for you from inside wp-admin with one API token.
 - **Built for the failure cases.** Per-browser login state, a rate limiter that only trusts
   Cloudflare's own IP ranges, one-time backup codes for the day your identity provider is
   down, encrypted write-only secrets, and an audit log with CSV export.
-- **Self-updating.** Installs from a GitHub release and checks that repository for updates.
+- **Self-updating.** The GitHub package checks that repository for updates. The WordPress.org
+  package updates through WordPress.org like any other directory plugin.
 
 > **Upgrading from 1.x?** 2.0.0 removes SAML and changes how the client secret is stored.
 > Read [Upgrading from 1.x](#%EF%B8%8F-upgrading-from-1x) first. If you are still on 1.0.4 or
@@ -77,16 +81,23 @@ create that application for you from inside wp-admin with one API token.
 
 ## 🔧 Installation
 
-### Method 1: Direct Download
-1. Download the latest release from the [Releases page](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases)
-2. Upload to your `/wp-content/plugins/` directory
-3. Activate the plugin through the 'Plugins' menu in WordPress
+### Method 1: WordPress plugin directory
+Once the directory listing is approved, search for **Zero Trust Login for Cloudflare** under
+Plugins → Add New. Updates then arrive through WordPress.org.
 
-### Method 2: Git Clone
+### Method 2: GitHub release
+1. Download `zero-trust-login-for-cloudflare-<version>.zip` from the [Releases page](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases)
+2. Upload it under Plugins → Add New → Upload Plugin, or unzip it into `/wp-content/plugins/`
+3. Activate the plugin. This package checks GitHub for updates.
+
+### Method 3: Git Clone
 ```bash
 cd wp-content/plugins/
-git clone https://github.com/cjscrofani/cloudflare-zero-trust-wordpress.git cloudflare-zero-trust-login
+git clone https://github.com/cjscrofani/cloudflare-zero-trust-wordpress.git zero-trust-login-for-cloudflare
 ```
+
+Pick one channel per site. The two packages are the same code, but a site should not have both
+a GitHub-installed and a directory-installed copy.
 
 ## ⚙️ Configuration
 
@@ -325,19 +336,28 @@ upgrade migration.
 ### Release
 
 ```bash
-.dev/bin/build-release            # or: .dev/bin/build-release v2.0.0
+.dev/bin/build-release                # GitHub asset from HEAD (or: ... v2.1.0)
+.dev/bin/build-release --wporg        # WordPress.org package: same, minus the updater
+.dev/bin/build-release --worktree     # package the uncommitted working tree, for testing
 ```
 
-This runs `git archive` with the `cloudflare-zero-trust-login/` prefix and writes
-`dist/cloudflare-zero-trust-login-<version>.zip`, excluding everything marked
-`export-ignore` in `.gitattributes` (`.dev/`, Markdown, dotfiles). Attach the zip to the
-GitHub release: the in-plugin updater prefers a `.zip` asset over the tag zipball, and the
-asset already has the folder name WordPress expects. If no asset is attached, the updater
-falls back to the zipball and renames its top-level folder on install. Tags are `vX.Y.Z`.
+Both commands run `git archive` with the `zero-trust-login-for-cloudflare/` prefix and exclude
+everything marked `export-ignore` in `.gitattributes` (`.dev/`, `.wordpress-org/`, Markdown,
+dotfiles). The script refuses to build if `readme.txt`'s `Stable tag` disagrees with the
+plugin header.
+
+- `dist/zero-trust-login-for-cloudflare-<version>.zip` goes on the GitHub release. The
+  in-plugin updater prefers a `.zip` asset over the tag zipball and renames the extracted
+  folder to whatever the site already has, so installs under the old
+  `cloudflare-zero-trust-login` folder keep updating. Tags are `vX.Y.Z`.
+- `dist/zero-trust-login-for-cloudflare-<version>-wporg.zip` is what gets submitted to
+  WordPress.org and, after approval, committed to SVN `trunk/` and `tags/<version>/`. It must
+  not contain `class-github-updater.php` (directory guideline 8). The listing artwork lives in
+  `.wordpress-org/` and goes into the SVN `assets/` directory, not the plugin.
 
 ### Project Structure
 ```
-cloudflare-zero-trust-login/
+zero-trust-login-for-cloudflare/        (GitHub installs made before 2.1.0 keep the old folder name)
 ├── assets/
 │   ├── css/
 │   │   └── cfzt-login.css

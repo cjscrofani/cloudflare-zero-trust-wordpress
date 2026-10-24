@@ -78,7 +78,7 @@ class CFZT_Provisioner {
         if (!$api->has_token()) {
             return new WP_Error(
                 'cfzt_no_token',
-                __('Paste your Cloudflare API token first.', 'cf-zero-trust')
+                __('Paste your Cloudflare API token first.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -98,7 +98,7 @@ class CFZT_Provisioner {
         if (empty($accounts)) {
             return new WP_Error(
                 'cfzt_no_accounts',
-                __('This token cannot see any Cloudflare accounts. This usually means it is missing Account → Account Settings → Read, which Cloudflare requires before a token can list accounts. Edit the token in Cloudflare to add that permission, then try again.', 'cf-zero-trust')
+                __('This token cannot see any Cloudflare accounts. This usually means it is missing Account → Account Settings → Read, which Cloudflare requires before a token can list accounts. Edit the token in Cloudflare to add that permission, then try again.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -125,7 +125,7 @@ class CFZT_Provisioner {
                 $entry['team_domain'] = $org['auth_domain'];
                 $entry['ready'] = true;
             } else {
-                $entry['notice'] = __('No Zero Trust team domain is set for this account yet.', 'cf-zero-trust');
+                $entry['notice'] = __('No Zero Trust team domain is set for this account yet.', 'zero-trust-login-for-cloudflare');
             }
 
             $described[] = $entry;
@@ -159,14 +159,14 @@ class CFZT_Provisioner {
         if (!$api->has_token()) {
             return new WP_Error(
                 'cfzt_no_token',
-                __('Paste your Cloudflare API token first.', 'cf-zero-trust')
+                __('Paste your Cloudflare API token first.', 'zero-trust-login-for-cloudflare')
             );
         }
 
         if ('' === trim($account_id)) {
             return new WP_Error(
                 'cfzt_no_account',
-                __('Choose which Cloudflare account to create the application in.', 'cf-zero-trust')
+                __('Choose which Cloudflare account to create the application in.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -179,7 +179,7 @@ class CFZT_Provisioner {
         if (empty($org['auth_domain'])) {
             return new WP_Error(
                 'cfzt_no_team_domain',
-                __('This account has no Zero Trust team domain. Set one in the Zero Trust dashboard, then run setup again.', 'cf-zero-trust')
+                __('This account has no Zero Trust team domain. Set one in the Zero Trust dashboard, then run setup again.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -192,7 +192,7 @@ class CFZT_Provisioner {
         if ((defined('CFZT_CLIENT_ID') && CFZT_CLIENT_ID) || (defined('CFZT_CLIENT_SECRET') && CFZT_CLIENT_SECRET)) {
             return new WP_Error(
                 'cfzt_constants_defined',
-                __('CFZT_CLIENT_ID or CFZT_CLIENT_SECRET is defined in wp-config.php, and those values override anything saved here. Remove the constants (or create the application manually and update them), then run setup again.', 'cf-zero-trust')
+                __('CFZT_CLIENT_ID or CFZT_CLIENT_SECRET is defined in wp-config.php, and those values override anything saved here. Remove the constants (or create the application manually and update them), then run setup again.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -209,8 +209,8 @@ class CFZT_Provisioner {
                 'cfzt_app_exists',
                 sprintf(
                     /* translators: %s: existing Cloudflare application name */
-                    __('An Access application called "%s" already points at this site. You can replace it: the old application will be deleted from Cloudflare and a new one created with fresh credentials.', 'cf-zero-trust'),
-                    isset($first['name']) ? $first['name'] : __('Untitled', 'cf-zero-trust')
+                    __('An Access application called "%s" already points at this site. You can replace it: the old application will be deleted from Cloudflare and a new one created with fresh credentials.', 'zero-trust-login-for-cloudflare'),
+                    isset($first['name']) ? $first['name'] : __('Untitled', 'zero-trust-login-for-cloudflare')
                 ),
                 array(
                     'existing_app_id'   => isset($first['id']) ? $first['id'] : '',
@@ -229,7 +229,7 @@ class CFZT_Provisioner {
                     'cfzt_replace_failed',
                     sprintf(
                         /* translators: %s: error detail from Cloudflare */
-                        __('Could not delete the existing application, so nothing was changed: %s', 'cf-zero-trust'),
+                        __('Could not delete the existing application, so nothing was changed: %s', 'zero-trust-login-for-cloudflare'),
                         $deleted->get_error_message()
                     )
                 );
@@ -282,7 +282,7 @@ class CFZT_Provisioner {
 
             return new WP_Error(
                 'cfzt_no_credentials_returned',
-                __('Cloudflare created the application but did not return OIDC credentials, so it was removed again. Please retry, or create the application manually.', 'cf-zero-trust')
+                __('Cloudflare created the application but did not return OIDC credentials, so it was removed again. Please retry, or create the application manually.', 'zero-trust-login-for-cloudflare')
             );
         }
 
@@ -369,7 +369,7 @@ class CFZT_Provisioner {
                             'cfzt_invalid_policy_email',
                             sprintf(
                                 /* translators: %s: the invalid email address */
-                                __('"%s" is not a valid email address.', 'cf-zero-trust'),
+                                __('"%s" is not a valid email address.', 'zero-trust-login-for-cloudflare'),
                                 $email
                             )
                         );
@@ -379,7 +379,7 @@ class CFZT_Provisioner {
                 if (empty($include)) {
                     return new WP_Error(
                         'cfzt_no_policy_emails',
-                        __('List at least one email address that should be allowed to log in.', 'cf-zero-trust')
+                        __('List at least one email address that should be allowed to log in.', 'zero-trust-login-for-cloudflare')
                     );
                 }
                 break;
@@ -393,7 +393,7 @@ class CFZT_Provisioner {
                             'cfzt_invalid_policy_domain',
                             sprintf(
                                 /* translators: %s: the invalid domain */
-                                __('"%s" is not a valid email domain.', 'cf-zero-trust'),
+                                __('"%s" is not a valid email domain.', 'zero-trust-login-for-cloudflare'),
                                 $domain
                             )
                         );
@@ -403,7 +403,7 @@ class CFZT_Provisioner {
                 if (empty($include)) {
                     return new WP_Error(
                         'cfzt_no_policy_domains',
-                        __('Enter at least one email domain that should be allowed to log in.', 'cf-zero-trust')
+                        __('Enter at least one email domain that should be allowed to log in.', 'zero-trust-login-for-cloudflare')
                     );
                 }
                 break;
@@ -414,7 +414,7 @@ class CFZT_Provisioner {
             // not to an administrator role. Roles come from plugin settings.
             'name'     => sprintf(
                 /* translators: %s: site host name */
-                __('WordPress login (%s)', 'cf-zero-trust'),
+                __('WordPress login (%s)', 'zero-trust-login-for-cloudflare'),
                 wp_parse_url(home_url(), PHP_URL_HOST)
             ),
             'decision' => 'allow',
@@ -448,7 +448,7 @@ class CFZT_Provisioner {
         if ('' === $name) {
             $name = sprintf(
                 /* translators: %s: WordPress site name */
-                __('%s (WordPress)', 'cf-zero-trust'),
+                __('%s (WordPress)', 'zero-trust-login-for-cloudflare'),
                 wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES)
             );
         }
@@ -491,15 +491,15 @@ class CFZT_Provisioner {
         // An Access app with no identity provider cannot authenticate anyone.
         $idps = $api->get_identity_providers($account_id);
         if (!is_wp_error($idps) && empty($idps)) {
-            $warnings[] = __('This Cloudflare account has no identity providers configured. Add one (or enable One-time PIN) in Zero Trust → Settings → Authentication, or nobody will be able to log in.', 'cf-zero-trust');
+            $warnings[] = __('This Cloudflare account has no identity providers configured. Add one (or enable One-time PIN) in Zero Trust → Settings → Authentication, or nobody will be able to log in.', 'zero-trust-login-for-cloudflare');
         }
 
         if (!$this->security->is_encryption_available()) {
-            $warnings[] = __('OpenSSL is not available, so the client secret is stored with basic obfuscation only. Consider defining CFZT_CLIENT_SECRET in wp-config.php instead.', 'cf-zero-trust');
+            $warnings[] = __('OpenSSL is not available, so the client secret is stored with basic obfuscation only. Consider defining CFZT_CLIENT_SECRET in wp-config.php instead.', 'zero-trust-login-for-cloudflare');
         }
 
         if (!is_ssl()) {
-            $warnings[] = __('This site is not served over HTTPS. Cloudflare will not be able to complete the login redirect until it is.', 'cf-zero-trust');
+            $warnings[] = __('This site is not served over HTTPS. Cloudflare will not be able to complete the login redirect until it is.', 'zero-trust-login-for-cloudflare');
         }
 
         return $warnings;
@@ -600,11 +600,11 @@ class CFZT_Provisioner {
                 'zoneId'              => 'all',
                 'name'                => rawurlencode(sprintf(
                     /* translators: %s: site host name */
-                    __('WordPress Zero Trust setup (%s)', 'cf-zero-trust'),
+                    __('WordPress Zero Trust setup (%s)', 'zero-trust-login-for-cloudflare'),
                     wp_parse_url(home_url(), PHP_URL_HOST)
                 )),
             ),
-            'https://dash.cloudflare.com/profile/api-tokens'
+            'https://dash.cloudflare.com/profile/api-tokens' // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- deep link to the Cloudflare dashboard for creating a token; nothing is loaded from it
         );
     }
 }
