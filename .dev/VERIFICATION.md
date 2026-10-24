@@ -144,3 +144,6 @@ the audit file's Resolution note. On the sandbox:
   secret, `wp plugin list --update=available` reported 2.0.0 from GitHub, `wp plugin update`
   installed it into the same folder, plugin active, `cfzt_version` 2.0.0, secret re-encoded
   and decrypting, login start requesting the `groups` scope.
+- Final live sign-in on the released 2.0.0 package (installed by the self-updater), 2026-10-24
+  00:47 UTC: Cloudflare login with the same Google Workspace identity landed in wp-admin; server
+  side `cfzt_last_login` updated, `cfzt_auth_method=oidc`, role unchanged. Release verified.
