@@ -81,17 +81,12 @@ create that application for you from inside wp-admin with one API token.
 
 ## 🔧 Installation
 
-### Method 1: WordPress plugin directory
-Submitted to the directory on 2026-10-24 as `zero-trust-login-for-cloudflare`; awaiting review.
-Once approved, search for **Zero Trust Login for Cloudflare** under Plugins → Add New. Updates
-then arrive through WordPress.org.
-
-### Method 2: GitHub release
+### Method 1: GitHub release (recommended)
 1. Download `zero-trust-login-for-cloudflare-<version>.zip` from the [Releases page](https://github.com/cjscrofani/cloudflare-zero-trust-wordpress/releases)
 2. Upload it under Plugins → Add New → Upload Plugin, or unzip it into `/wp-content/plugins/`
 3. Activate the plugin. This package checks GitHub for updates.
 
-### Method 3: Git Clone
+### Method 2: Git Clone
 ```bash
 cd wp-content/plugins/
 git clone https://github.com/cjscrofani/cloudflare-zero-trust-wordpress.git zero-trust-login-for-cloudflare
@@ -358,10 +353,14 @@ plugin header.
 
 ### WordPress.org
 
-The directory listing was submitted on 2026-10-24 (slug `zero-trust-login-for-cloudflare`,
-automated scan passed). Status and the "upload updated plugin" form are at
-[wordpress.org/plugins/developers/add](https://wordpress.org/plugins/developers/add/); review
-correspondence arrives by email from plugins@wordpress.org.
+The plugin is distributed through GitHub only. A directory listing was submitted on 2026-10-24
+(slug `zero-trust-login-for-cloudflare`) and the review came back on 2026-10-27 asking for
+enqueued assets, an activation fix and input sanitization; all of that shipped in 2.1.2. The
+listing itself is not being pursued for now, because it would be a second channel to maintain.
+The notes below stay in case that changes: the submission can be resumed by replying on the
+review thread with a `--wporg` build, and a short justification for `wp_create_user()` (users are
+created only after a verified OIDC token, auto-creation is an admin setting, domain restrictions
+apply, and the default role is admin-chosen).
 
 Before every submission or SVN commit, run Plugin Check against the package layout. It is
 installed in the local test environment:
@@ -389,11 +388,22 @@ removed after the 2.1.0 submission) still needs a new tag before it reaches eith
 ### Project Structure
 ```
 zero-trust-login-for-cloudflare/        (GitHub installs made before 2.1.0 keep the old folder name)
-├── assets/
+├── assets/                             # All JS/CSS; nothing is printed inline from PHP
 │   ├── css/
-│   │   └── cfzt-login.css
+│   │   ├── cfzt-admin.css              # Settings page
+│   │   ├── cfzt-dashboard.css
+│   │   ├── cfzt-login.css              # wp-login.php button and primary-mode rules
+│   │   ├── cfzt-logs.css
+│   │   ├── cfzt-notices.css            # Activation, onboarding and SAML-removal notices
+│   │   └── cfzt-users.css              # "Cloudflare" badge in the Users list
 │   └── js/
-│       └── cfzt-admin.js
+│       ├── cfzt-admin.js               # Update check (settings page)
+│       ├── cfzt-backup-codes.js        # Profile screen: generate, copy, print codes
+│       ├── cfzt-dashboard.js
+│       ├── cfzt-login.js               # "Use a backup code" toggle on wp-login.php
+│       ├── cfzt-logs.js
+│       ├── cfzt-notices.js             # Shared dismiss handler (data-cfzt-dismiss-* attributes)
+│       └── cfzt-settings.js            # Wizard, validation, role mapping, import/export, provisioning
 ├── includes/
 │   ├── class-cfzt-admin.php            # Settings page, AJAX, import/export
 │   ├── class-cfzt-auth.php             # OIDC flow, primary-mode enforcement
@@ -415,6 +425,13 @@ zero-trust-login-for-cloudflare/        (GitHub installs made before 2.1.0 keep 
 ├── cloudflare-zero-trust-login.php
 └── uninstall.php
 ```
+
+Each screen's script and stylesheet are enqueued only on that screen (`CFZT_Admin::enqueue_admin_scripts()`,
+`CFZT_Backup_Codes`, `CFZT_Login_UI`). Translated strings, nonces and other PHP values reach the
+scripts through `wp_localize_script()` objects (`cfztSettings`, `cfztDashboard`, `cfztLogs`,
+`cfztBackupCodes`, `cfztLoginBackup`, `cfztAdmin`); a script that inserts one of those strings into
+markup escapes it first. Dismissible notices carry `data-cfzt-dismiss-action` and
+`data-cfzt-dismiss-nonce`, which the shared notices script posts on dismiss.
 
 ### Hooks and Filters
 

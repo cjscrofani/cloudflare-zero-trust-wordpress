@@ -83,6 +83,42 @@ that, get a real public hostname:
 `SITE_URL` is baked into the database at install time, so change it *before*
 the first `up`, or run `.dev/bin/dev destroy` first.
 
+## Testing activation and upgrade paths
+
+`CFZT_Plugin::get_instance()` runs `run_upgrades()` on every load and re-stamps `cfzt_version`,
+so a version set with one WP-CLI call is already overwritten by the next call or page view.
+To exercise the activation hook the way WordPress runs it (plugins_loaded already passed, only
+`CFZT_Plugin` loaded), do everything in one process with the plugin skipped:
+
+```bash
+.dev/bin/dev wp --skip-plugins eval '
+  update_option("cfzt_version", "1.0.4");
+  include WP_PLUGIN_DIR . "/zero-trust-login-for-cloudflare/cloudflare-zero-trust-login.php";
+  CFZT_Plugin::activate();
+  echo "ok ", get_option("cfzt_version"), "\n";'
+```
+
+This is the path that fataled before 2.1.2. `wp plugin deactivate` / `activate` does not
+reproduce it, because the surrounding WP-CLI calls load the plugin and run the migration first.
+
+## Fetching admin pages from the shell
+
+Port 80 is not published to the host; Chrome reaches the site through the tunnel. For curl,
+run inside the container and mint a session for user 1 instead of logging in:
+
+```bash
+dcx() { docker compose -f .dev/docker-compose.yml exec -T wordpress "$@"; }
+COOKIE=$(.dev/bin/dev wp eval 'echo "wordpress_sec_" . COOKIEHASH . "=" . wp_generate_auth_cookie(1, time()+1800, "secure_auth")
+  . "; wordpress_logged_in_" . COOKIEHASH . "=" . wp_generate_auth_cookie(1, time()+1800, "logged_in");' 2>/dev/null | tail -1)
+dcx curl -s -H 'Host: cfzt.local' -H 'X-Forwarded-Proto: https' -H "Cookie: $COOKIE" \
+  'http://localhost/wp-admin/options-general.php?page=cf-zero-trust' | grep -o 'assets/[a-z/.-]*'
+```
+
+The admin account is the one `.dev/bin/dev up` creates (`ADMIN_USER`/`ADMIN_PASS` in `.env`,
+or the defaults at the top of `.dev/bin/dev`). The site's stored client ID is a placeholder,
+so the "Login with Cloudflare Zero Trust" button always fails with `invalid_client`; use the
+WordPress form, or re-provision through the settings wizard with a real API token.
+
 ## Checks that need no Cloudflare account
 
 ```bash
