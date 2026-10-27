@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-10-27
+
 ### Fixed
 - Reactivating the plugin on a site still carrying pre-2.0 settings (a reinstall over a 1.x
   install, or deactivate/activate before the first admin page load) crashed with a fatal error.

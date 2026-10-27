@@ -4,7 +4,7 @@ Tags: cloudflare, zero trust, sso, oidc, login
 Requires at least: 5.0
 Tested up to: 7.1
 Requires PHP: 7.2
-Stable tag: 2.1.1
+Stable tag: 2.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -103,6 +103,12 @@ Tools > CF Zero Trust Logs. It can be filtered by level, date, method and outcom
 
 == Changelog ==
 
+= 2.1.2 =
+* Fixed a fatal error when reactivating or reinstalling over settings from a 1.x version.
+* All JavaScript and CSS now loads from files under `assets/` on the screens that use them, instead of inline blocks. Translated strings are escaped where scripts insert them into markup.
+* Fixed the settings-page mode and task toggles in non-English locales, the logs table not hiding during a reload, and the unstyled badge in the Users list.
+* The version and site URL from an imported settings file are sanitized before logging.
+
 = 2.1.1 =
 * Fixed the advanced settings page showing no fields in 2.1.0. The wizard, the login flow and saved settings were not affected.
 * Removed the unused `Domain Path` plugin header.
@@ -126,6 +132,9 @@ Tools > CF Zero Trust Logs. It can be filtered by level, date, method and outcom
 The complete changelog is in the plugin's GitHub repository.
 
 == Upgrade Notice ==
+
+= 2.1.2 =
+Fixes a reactivation fatal on sites upgraded from 1.x and moves all scripts and styles to enqueued files. No settings changes required.
 
 = 2.1.1 =
 Fixes the blank advanced settings page in 2.1.0. No settings changes required.
