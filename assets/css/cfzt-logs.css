@@ -1,0 +1,186 @@
+/* Zero Trust Login for Cloudflare: logs page styles */
+
+.cfzt-logs-container {
+    margin-top: 20px;
+}
+
+.cfzt-logs-filters {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.cfzt-filter-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.cfzt-filter-row:last-child {
+    margin-bottom: 0;
+}
+
+.cfzt-filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+}
+
+.cfzt-filter-group label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.cfzt-filter-group select,
+.cfzt-filter-group input[type="text"],
+.cfzt-filter-group input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+}
+
+.cfzt-filter-actions {
+    justify-content: flex-end;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.cfzt-logs-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.cfzt-logs-actions .button .dashicons {
+    line-height: 28px;
+}
+
+#cfzt-logs-loading {
+    padding: 20px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+}
+
+.cfzt-logs-table-container {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+}
+
+#cfzt-logs-table {
+    margin: 0;
+}
+
+#cfzt-logs-table th {
+    font-weight: 600;
+}
+
+.cfzt-col-time { width: 150px; }
+.cfzt-col-level { width: 80px; }
+.cfzt-col-message { width: auto; }
+.cfzt-col-identifier { width: 180px; }
+.cfzt-col-method { width: 80px; }
+.cfzt-col-status { width: 80px; }
+.cfzt-col-ip { width: 130px; }
+
+.cfzt-log-level {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.cfzt-log-level-error {
+    background: #dc3232;
+    color: #fff;
+}
+
+.cfzt-log-level-warning {
+    background: #f0b849;
+    color: #000;
+}
+
+.cfzt-log-level-info {
+    background: #00a0d2;
+    color: #fff;
+}
+
+.cfzt-log-level-debug {
+    background: #82878c;
+    color: #fff;
+}
+
+.cfzt-log-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cfzt-log-status-success {
+    background: #46b450;
+    color: #fff;
+}
+
+.cfzt-log-status-failed {
+    background: #dc3232;
+    color: #fff;
+}
+
+.cfzt-log-method {
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: 11px;
+    color: #666;
+}
+
+.cfzt-logs-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+}
+
+.cfzt-pagination-info {
+    font-weight: 600;
+}
+
+.cfzt-pagination-links {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+#cfzt-page-numbers {
+    margin: 0 10px;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .cfzt-filter-row {
+        flex-direction: column;
+    }
+
+    .cfzt-filter-group {
+        width: 100%;
+    }
+
+    .cfzt-logs-pagination {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .cfzt-pagination-links {
+        flex-wrap: wrap;
+    }
+}

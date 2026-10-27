@@ -1,0 +1,624 @@
+/* Zero Trust Login for Cloudflare: settings page styles */
+
+/* No automatic dark mode here: the WordPress admin has no dark theme, so a
+   prefers-color-scheme block only darkened this card while core-styled headings
+   and labels stayed near-black, making the page unreadable. */
+.cfzt-wizard-container {
+    max-width: 900px;
+    margin: 20px 0;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.cfzt-wizard-header {
+    background: linear-gradient(135deg, #f38020, #f6821f);
+    color: #fff;
+    padding: 30px;
+    text-align: center;
+}
+
+.cfzt-wizard-header h1 {
+    color: #fff;
+    margin: 0 0 10px 0;
+    font-size: 28px;
+}
+
+.cfzt-wizard-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 16px;
+}
+
+.cfzt-wizard-tabs {
+    display: flex;
+    background: #f0f0f1;
+    border-bottom: 1px solid #ccd0d4;
+    margin: 0;
+    padding: 0;
+}
+
+.cfzt-wizard-tab {
+    flex: 1;
+    padding: 15px 20px;
+    text-align: center;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+    font-weight: 600;
+    color: #50575e;
+}
+
+.cfzt-wizard-tab.active {
+    background: #fff;
+    border-bottom-color: #f38020;
+    color: #f38020;
+}
+
+.cfzt-wizard-tab.completed {
+    color: #00a32a;
+}
+
+.cfzt-wizard-tab:hover:not(.active) {
+    background: #fff;
+}
+
+.cfzt-wizard-step {
+    padding: 30px;
+    display: none;
+}
+
+.cfzt-wizard-step.active {
+    display: block;
+}
+
+.cfzt-step-title {
+    font-size: 24px;
+    margin: 0 0 10px 0;
+    color: #1d2327;
+}
+
+.cfzt-step-description {
+    font-size: 14px;
+    color: #646970;
+    margin: 0 0 25px 0;
+}
+
+.cfzt-form-group {
+    margin-bottom: 25px;
+}
+
+.cfzt-form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1d2327;
+}
+
+.cfzt-form-group .description {
+    font-size: 13px;
+    color: #646970;
+    margin-top: 5px;
+    line-height: 1.5;
+}
+
+.cfzt-form-group input[type="text"],
+.cfzt-form-group input[type="password"],
+.cfzt-form-group select,
+.cfzt-form-group textarea {
+    width: 100%;
+    max-width: 500px;
+}
+
+.cfzt-wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px 30px;
+    background: #f6f7f7;
+    border-top: 1px solid #ccd0d4;
+}
+
+.cfzt-info-box {
+    background: #e7f7fe;
+    border-left: 4px solid #2271b1;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.cfzt-warning-box {
+    background: #fcf9e8;
+    border-left: 4px solid #dba617;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.cfzt-success-box {
+    background: #edfaef;
+    border-left: 4px solid #00a32a;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.cfzt-code-block {
+    background: #f6f7f7;
+    border: 1px solid #ccd0d4;
+    padding: 15px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    margin: 15px 0;
+}
+
+.cfzt-wizard-mode-toggle {
+    text-align: right;
+    padding: 15px 30px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.cfzt-checklist {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.cfzt-checklist li {
+    padding: 10px 0 10px 30px;
+    position: relative;
+}
+
+.cfzt-checklist li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #00a32a;
+    font-weight: bold;
+}
+
+.cfzt-radio-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.cfzt-radio-card {
+    border: 2px solid #dcdcde;
+    border-radius: 4px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.cfzt-radio-card:hover {
+    border-color: #f38020;
+}
+
+.cfzt-radio-card input[type="radio"] {
+    margin-right: 10px;
+}
+
+.cfzt-radio-card.selected {
+    border-color: #f38020;
+    background: #fff7f0;
+}
+
+.cfzt-radio-card-title {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.cfzt-radio-card-desc {
+    font-size: 13px;
+    color: #646970;
+}
+
+/* Setup Progress Indicator */
+.cfzt-setup-progress-container {
+    padding: 20px;
+    background: #f0f6fc;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.cfzt-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.cfzt-progress-title {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cfzt-progress-percentage {
+    font-weight: 700;
+    font-size: 18px;
+    color: #f38020;
+}
+
+.cfzt-progress-bar-wrapper {
+    height: 8px;
+    background: #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.cfzt-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f38020, #f6821f);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.cfzt-progress-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #646970;
+}
+
+.cfzt-toggle-tasks {
+    color: #2271b1;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.cfzt-toggle-tasks:hover {
+    color: #135e96;
+}
+
+.cfzt-remaining-tasks {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.cfzt-remaining-tasks ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cfzt-remaining-tasks li {
+    padding: 8px 0 8px 24px;
+    position: relative;
+    color: #646970;
+}
+
+.cfzt-remaining-tasks li:before {
+    content: "○";
+    position: absolute;
+    left: 0;
+    color: #f38020;
+    font-weight: bold;
+}
+
+.cfzt-setup-complete {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #edfaef;
+    border-bottom: 1px solid #ccd0d4;
+    color: #1d2327;
+}
+
+.cfzt-setup-complete strong {
+    color: #00a32a;
+}
+
+/* Contextual Help Tooltips */
+.cfzt-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #2271b1;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: help;
+    margin-left: 6px;
+    position: relative;
+}
+
+.cfzt-help-icon:hover {
+    background: #135e96;
+}
+
+.cfzt-tooltip {
+    position: absolute;
+    background: #1d2327;
+    color: #fff;
+    padding: 12px 15px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 300px;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: none;
+    font-weight: normal;
+    text-align: left;
+}
+
+.cfzt-tooltip.active {
+    display: block;
+}
+
+.cfzt-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 6px solid #1d2327;
+}
+
+.cfzt-tooltip a {
+    color: #72aee6;
+    text-decoration: underline;
+}
+
+.cfzt-tooltip a:hover {
+    color: #a5d2ff;
+}
+
+/* Import/Export Boxes */
+.cfzt-import-export-box {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.cfzt-import-export-box h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.cfzt-import-export-box p {
+    margin: 0 0 15px 0;
+    font-size: 13px;
+    color: #646970;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 782px) {
+    .cfzt-wizard-header {
+        padding: 20px;
+    }
+
+    .cfzt-wizard-header h1 {
+        font-size: 22px;
+    }
+
+    .cfzt-wizard-tabs {
+        flex-direction: column;
+    }
+
+    .cfzt-wizard-tab {
+        border-bottom: 1px solid #ccd0d4;
+        border-left: 3px solid transparent;
+    }
+
+    .cfzt-wizard-tab.active {
+        border-left-color: #f38020;
+        border-bottom-color: #ccd0d4;
+    }
+
+    .cfzt-wizard-step {
+        padding: 20px;
+    }
+
+    .cfzt-step-title {
+        font-size: 20px;
+    }
+
+    .cfzt-wizard-actions {
+        flex-direction: column-reverse;
+        gap: 10px;
+    }
+
+    .cfzt-wizard-actions > div {
+        width: 100%;
+    }
+
+    .cfzt-wizard-actions button {
+        width: 100%;
+    }
+
+    .cfzt-radio-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .cfzt-form-group input[type="text"],
+    .cfzt-form-group input[type="password"],
+    .cfzt-form-group select,
+    .cfzt-form-group textarea {
+        max-width: 100%;
+    }
+
+    .cfzt-code-block {
+        font-size: 12px;
+        overflow-x: auto;
+    }
+
+    .cfzt-toast {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+
+    .cfzt-info-box,
+    .cfzt-warning-box,
+    .cfzt-success-box {
+        padding: 12px;
+    }
+
+    .cfzt-copy-btn {
+        display: block;
+        width: 100%;
+        margin-top: 10px !important;
+        margin-left: 0 !important;
+        float: none !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .cfzt-wizard-container {
+        margin: 10px 0;
+    }
+
+    .cfzt-wizard-mode-toggle {
+        padding: 10px 15px;
+    }
+
+    .cfzt-step-description {
+        font-size: 13px;
+    }
+
+    .notice.cfzt-activation-notice > div {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .notice.cfzt-activation-notice svg {
+        margin: 0 auto 15px;
+    }
+}
+
+/* Toast notification */
+.cfzt-toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #2c3338;
+    color: #fff;
+    padding: 15px 20px;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: cfzt-slide-up 0.3s ease-out;
+}
+
+.cfzt-toast.success {
+    background: #00a32a;
+}
+
+.cfzt-toast.error {
+    background: #d63638;
+}
+
+@keyframes cfzt-slide-up {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.cfzt-toast-icon {
+    font-size: 20px;
+}
+
+/* Live validation styles */
+.cfzt-field-valid {
+    border-color: #00a32a !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2300a32a"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-field-invalid {
+    border-color: #d63638 !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23d63638"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-field-warning {
+    border-color: #dba617 !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23dba617"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+}
+
+.cfzt-validation-message {
+    display: block;
+    margin-top: 5px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.cfzt-validation-message.valid {
+    color: #00a32a;
+}
+
+.cfzt-validation-message.invalid {
+    color: #d63638;
+}
+
+.cfzt-validation-message.warning {
+    color: #dba617;
+}
+
+/* Update check status and shared badges */
+#cfzt-update-check-status {
+    margin: 10px 0;
+    padding: 10px;
+    display: none;
+}
+#cfzt-update-check-status.notice-success,
+#cfzt-update-check-status.notice-warning,
+#cfzt-update-check-status.notice-error {
+    display: block;
+}
+#cfzt-update-check-status .spinner {
+    visibility: visible;
+}
+#cfzt-security-details {
+    display: none;
+}
+#cfzt-oidc-settings {
+    margin-top: 20px;
+}
+.cfzt-section-hidden {
+    display: none;
+}
+
+/* Spinner used by the test, export and import buttons */
+.dashicons.spin {
+    animation: cfzt-spin 1s linear infinite;
+}
+@keyframes cfzt-spin {
+    100% { transform: rotate(360deg); }
+}

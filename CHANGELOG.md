@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Reactivating the plugin on a site still carrying pre-2.0 settings (a reinstall over a 1.x
+  install, or deactivate/activate before the first admin page load) crashed with a fatal error.
+  The activation hook runs before the plugin's classes are loaded, and the 2.0 migrations it
+  runs use two of them. Activation now loads the classes first. Reported by the WordPress.org
+  plugin review.
+- The version and site URL read from an imported settings file are now sanitized before they
+  are written to the log.
+- The "Cloudflare" badge in the Users list had no styling: its CSS was only ever loaded on the
+  settings page.
+- The "Switch to Wizard/Advanced Mode" and "View/Hide remaining tasks" buttons on the settings
+  page chose their label by searching the button text for an English word, so in any other
+  language the label stuck after the first click. They now follow the panel state.
+- The logs table did not hide while a reload was in progress: the script targeted the container
+  by an id when the markup used a class.
+
+### Changed
+- No more `<script>` and `<style>` blocks printed from PHP. The settings, dashboard and logs
+  pages, the admin notices, the backup-codes section of the profile screen and the login-form
+  toggle now load their JavaScript and CSS from files under `assets/`, enqueued only on the
+  screens that use them. (The login page's primary-mode rules were already attached through
+  `wp_add_inline_style()` and are unchanged.) Strings and nonces reach the scripts through `wp_localize_script()`, and translated
+  strings are HTML-escaped wherever the scripts insert them into markup. Side effects: the
+  dashboard's test-connection messages are now translatable, the "Ctrl/Cmd + S" tip on the
+  settings page shows its bold text instead of a literal `<strong>` tag, and backup codes are
+  escaped when listed and printed.
+- With logging enabled, activation now records a "Plugin activated" log entry. It was always
+  meant to, but the logger was not loaded at activation time.
+
 ## [2.1.1] - 2026-10-24
 
 ### Fixed

@@ -82,15 +82,19 @@ class CFZT_Plugin {
      * Constructor
      */
     private function __construct() {
-        $this->load_dependencies();
+        self::load_dependencies();
         $this->init_components();
         $this->init_hooks();
     }
     
     /**
      * Load required files
+     *
+     * Static so that activate() can call it: the activation hook runs right
+     * after the main file is included, long after plugins_loaded, so nothing
+     * but this class has been loaded at that point.
      */
-    private function load_dependencies() {
+    private static function load_dependencies() {
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-logger.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-security.php';
         require_once CFZT_PLUGIN_DIR . 'includes/class-cfzt-user-helper.php';
@@ -396,6 +400,9 @@ class CFZT_Plugin {
         // A manual reinstall (deactivate, delete, upload, activate) arrives
         // here with the old site's settings still in the database. Run the
         // same migrations an in-place update would, before stamping the version.
+        // The migrations use CFZT_Security and CFZT_Admin, which are not loaded
+        // yet during activation (see load_dependencies()).
+        self::load_dependencies();
         self::run_upgrades();
         update_option('cfzt_version', CFZT_PLUGIN_VERSION);
 

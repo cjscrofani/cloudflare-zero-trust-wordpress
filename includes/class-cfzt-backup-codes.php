@@ -314,6 +314,35 @@ class CFZT_Backup_Codes {
         }
 
         $remaining_count = self::get_remaining_count($user->ID);
+
+        // Enqueued from the render hook (rather than admin_enqueue_scripts) so
+        // the script only loads on profiles that actually show this section.
+        // It goes in the footer, which is still ahead of us at this point.
+        wp_enqueue_script(
+            'cfzt-backup-codes',
+            CFZT_PLUGIN_URL . 'assets/js/cfzt-backup-codes.js',
+            array('jquery'),
+            CFZT_PLUGIN_VERSION,
+            true
+        );
+        wp_localize_script('cfzt-backup-codes', 'cfztBackupCodes', array(
+            'userLogin' => $user->user_login,
+            'nonces' => array(
+                'backupCodes' => wp_create_nonce('cfzt_backup_codes'),
+            ),
+            'i18n' => array(
+                'generatingNewBackupCodesWill' => __('Generating new backup codes will invalidate any existing codes. Continue?', 'zero-trust-login-for-cloudflare'),
+                'generating' => __('Generating...', 'zero-trust-login-for-cloudflare'),
+                'generateNewBackupCodes' => __('Generate New Backup Codes', 'zero-trust-login-for-cloudflare'),
+                'error' => __('Error: ', 'zero-trust-login-for-cloudflare'),
+                'copied' => __('Copied!', 'zero-trust-login-for-cloudflare'),
+                'copyAllCodes' => __('Copy All Codes', 'zero-trust-login-for-cloudflare'),
+                'backupCodes' => __('Backup Codes', 'zero-trust-login-for-cloudflare'),
+                'cloudflareZeroTrustBackupCodes' => __('Cloudflare Zero Trust Backup Codes', 'zero-trust-login-for-cloudflare'),
+                'user' => __('User:', 'zero-trust-login-for-cloudflare'),
+                'generated' => __('Generated:', 'zero-trust-login-for-cloudflare'),
+            ),
+        ));
         ?>
         <h2><?php esc_html_e('Cloudflare Zero Trust Backup Codes', 'zero-trust-login-for-cloudflare'); ?></h2>
         <table class="form-table" role="presentation">
@@ -357,77 +386,6 @@ class CFZT_Backup_Codes {
             </tr>
         </table>
 
-        <script>
-        jQuery(document).ready(function($) {
-            $('#cfzt-generate-backup-codes').on('click', function() {
-                if (!confirm('<?php echo esc_js(__('Generating new backup codes will invalidate any existing codes. Continue?', 'zero-trust-login-for-cloudflare')); ?>')) {
-                    return;
-                }
-
-                var $button = $(this);
-                $button.prop('disabled', true).text('<?php echo esc_js(__('Generating...', 'zero-trust-login-for-cloudflare')); ?>');
-
-                $.post(ajaxurl, {
-                    action: 'cfzt_generate_backup_codes',
-                    nonce: '<?php echo esc_js(wp_create_nonce('cfzt_backup_codes')); ?>',
-                    user_id: $button.data('user-id')
-                }, function(response) {
-                    if (response.success) {
-                        var codes = response.data.codes;
-                        var $list = $('#cfzt-backup-codes-list');
-                        $list.empty();
-
-                        codes.forEach(function(code) {
-                            $list.append('<div style="margin: 5px 0;">' + code + '</div>');
-                        });
-
-                        $('#cfzt-backup-codes-display').slideDown();
-                        $button.text('<?php echo esc_js(__('Generate New Backup Codes', 'zero-trust-login-for-cloudflare')); ?>').prop('disabled', false);
-                    } else {
-                        alert('<?php echo esc_js(__('Error: ', 'zero-trust-login-for-cloudflare')); ?>' + response.data);
-                        $button.prop('disabled', false).text('<?php echo esc_js(__('Generate New Backup Codes', 'zero-trust-login-for-cloudflare')); ?>');
-                    }
-                });
-            });
-
-            $('#cfzt-copy-backup-codes').on('click', function() {
-                var codes = [];
-                $('#cfzt-backup-codes-list div').each(function() {
-                    codes.push($(this).text());
-                });
-
-                var text = codes.join('\n');
-                navigator.clipboard.writeText(text).then(function() {
-                    var $button = $('#cfzt-copy-backup-codes');
-                    $button.text('<?php echo esc_js(__('Copied!', 'zero-trust-login-for-cloudflare')); ?>');
-                    setTimeout(function() {
-                        $button.html('<span class="dashicons dashicons-clipboard" style="vertical-align: middle;"></span> <?php echo esc_js(__('Copy All Codes', 'zero-trust-login-for-cloudflare')); ?>');
-                    }, 2000);
-                });
-            });
-
-            $('#cfzt-print-backup-codes').on('click', function() {
-                var codes = [];
-                $('#cfzt-backup-codes-list div').each(function() {
-                    codes.push($(this).text());
-                });
-
-                var printWindow = window.open('', '', 'width=600,height=400');
-                printWindow.document.write('<html><head><title><?php echo esc_js(__('Backup Codes', 'zero-trust-login-for-cloudflare')); ?></title>');
-                printWindow.document.write('<style>body { font-family: Arial, sans-serif; padding: 20px; } h1 { font-size: 18px; } code { display: block; margin: 10px 0; font-size: 16px; }</style>');
-                printWindow.document.write('</head><body>');
-                printWindow.document.write('<h1><?php echo esc_js(__('Cloudflare Zero Trust Backup Codes', 'zero-trust-login-for-cloudflare')); ?></h1>');
-                printWindow.document.write('<p><?php echo esc_js(__('User:', 'zero-trust-login-for-cloudflare')); ?> <?php echo esc_js($user->user_login); ?></p>');
-                printWindow.document.write('<p><?php echo esc_js(__('Generated:', 'zero-trust-login-for-cloudflare')); ?> ' + new Date().toLocaleString() + '</p>');
-                codes.forEach(function(code) {
-                    printWindow.document.write('<code>' + code + '</code>');
-                });
-                printWindow.document.write('</body></html>');
-                printWindow.document.close();
-                printWindow.print();
-            });
-        });
-        </script>
         <?php
     }
 
@@ -441,7 +399,9 @@ class CFZT_Backup_Codes {
             return;
         }
 
-        $primary = CFZT_Auth::is_primary_mode();
+        // Enqueued alongside the markup so the script is only loaded where the
+        // toggle is rendered (wp-login.php, including the interim login).
+        $this->enqueue_login_assets();
         ?>
         <p class="cfzt-backup-code-toggle" style="text-align: center; margin-top: 10px;">
             <a href="#" id="cfzt-use-backup-code" style="font-size: 13px;">
@@ -458,50 +418,33 @@ class CFZT_Backup_Codes {
                 <?php esc_html_e('Enter one of your backup codes. Each code can only be used once.', 'zero-trust-login-for-cloudflare'); ?>
             </p>
         </div>
-
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var primary = <?php echo $primary ? 'true' : 'false'; ?>;
-            var link = document.getElementById('cfzt-use-backup-code');
-            var form = document.getElementById('cfzt-backup-code-form');
-            var input = document.getElementById('cfzt_backup_code');
-            var loginForm = document.getElementById('loginform');
-            var wrapper = document.querySelector('.cfzt-login-wrapper');
-
-            if (!link || !form) {
-                return;
-            }
-
-            // In primary mode the password form is hidden, so the toggle has
-            // to live outside it: move it next to the Cloudflare button and
-            // reveal the form (minus the password field) on demand.
-            if (primary && wrapper) {
-                wrapper.appendChild(link.parentNode);
-            }
-
-            function setBackupMode(on) {
-                document.body.classList.toggle('cfzt-backup-mode', on);
-                form.style.display = on ? 'block' : 'none';
-                link.textContent = on
-                    ? '<?php echo esc_js(__('Use regular login', 'zero-trust-login-for-cloudflare')); ?>'
-                    : '<?php echo esc_js(__('Use a backup code', 'zero-trust-login-for-cloudflare')); ?>';
-                if (on) {
-                    var userField = document.getElementById('user_login');
-                    (userField && !userField.value ? userField : input).focus();
-                } else {
-                    input.value = '';
-                }
-                if (primary && loginForm) {
-                    loginForm.style.display = on ? 'block' : 'none';
-                }
-            }
-
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                setBackupMode(form.style.display === 'none');
-            });
-        });
-        </script>
         <?php
+    }
+
+    /**
+     * Enqueue the backup-code toggle script
+     *
+     * Called from display_backup_code_link() after its guard, so it only
+     * loads where the toggle is rendered. The footer has not printed yet at
+     * that point on wp-login.php or on a normal front-end page.
+     */
+    private function enqueue_login_assets() {
+        wp_enqueue_script(
+            'cfzt-login',
+            CFZT_PLUGIN_URL . 'assets/js/cfzt-login.js',
+            array(),
+            CFZT_PLUGIN_VERSION,
+            true
+        );
+        wp_localize_script('cfzt-login', 'cfztLoginBackup', array(
+            // In primary mode the password form is hidden; the script moves
+            // the toggle next to the Cloudflare button and reveals the form
+            // (minus the password field) on demand.
+            'primary' => CFZT_Auth::is_primary_mode() ? '1' : '',
+            'i18n' => array(
+                'useRegularLogin' => __('Use regular login', 'zero-trust-login-for-cloudflare'),
+                'useABackupCode' => __('Use a backup code', 'zero-trust-login-for-cloudflare'),
+            ),
+        ));
     }
 }

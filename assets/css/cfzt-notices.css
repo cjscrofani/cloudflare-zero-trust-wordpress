@@ -1,0 +1,31 @@
+/* Zero Trust Login for Cloudflare: admin notices */
+
+.cfzt-activation-notice {
+    border-left-color: #f38020 !important;
+}
+.cfzt-activation-notice h3 {
+    color: #1d2327;
+}
+
+/* WordPress moves admin notices to just below the first heading in .wrap,
+   which on this page is inside the orange wizard header (color: #fff).
+   Set the text colour explicitly or every checklist title inherits white
+   on a white panel. */
+.cfzt-onboarding-notice,
+.cfzt-onboarding-notice p,
+.cfzt-onboarding-checklist,
+.cfzt-onboarding-checklist span {
+    color: #1d2327;
+}
+.cfzt-onboarding-notice {
+    border-left-color: #f38020 !important;
+}
+.cfzt-onboarding-notice h3 {
+    color: #1d2327;
+}
+.cfzt-onboarding-checklist {
+    background: #fff;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}

@@ -184,19 +184,16 @@ class CFZT_Admin {
      * @return void
      */
     public function saml_removal_notice() {
-        if (!current_user_can('manage_options')) {
+        if (!$this->should_show_saml_removal_notice()) {
             return;
         }
 
         $state = get_option('cfzt_saml_removed_notice');
-        if (empty($state)) {
-            return;
-        }
-
         $settings_url = admin_url('options-general.php?page=cf-zero-trust');
         ?>
         <div class="notice notice-warning cfzt-saml-removed-notice is-dismissible"
-             data-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_saml_notice')); ?>">
+             data-cfzt-dismiss-action="cfzt_dismiss_saml_notice"
+             data-cfzt-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_saml_notice')); ?>">
             <h3 style="margin-bottom: 5px;"><?php esc_html_e('SAML support has been removed', 'zero-trust-login-for-cloudflare'); ?></h3>
             <p>
                 <?php esc_html_e('This site was configured to authenticate with SAML. That implementation never verified response signatures, so it has been removed rather than left in place. Cloudflare Zero Trust authentication now runs over OIDC only.', 'zero-trust-login-for-cloudflare'); ?>
@@ -213,17 +210,19 @@ class CFZT_Admin {
                 </a>
             </p>
         </div>
-        <script>
-        jQuery(function($) {
-            $('.cfzt-saml-removed-notice').on('click', '.notice-dismiss', function() {
-                $.post(ajaxurl, {
-                    action: 'cfzt_dismiss_saml_notice',
-                    nonce: $('.cfzt-saml-removed-notice').data('dismiss-nonce')
-                });
-            });
-        });
-        </script>
         <?php
+    }
+
+    /**
+     * Whether the SAML removal notice should render on this request
+     *
+     * Shared by the notice and by enqueue_admin_scripts(), which loads the
+     * dismiss script and notice styles only when a notice will appear.
+     *
+     * @return bool
+     */
+    private function should_show_saml_removal_notice(): bool {
+        return current_user_can('manage_options') && !empty(get_option('cfzt_saml_removed_notice'));
     }
 
     /**
@@ -668,39 +667,13 @@ class CFZT_Admin {
      * Show activation notice to guide users to settings
      */
     public function activation_notice() {
-        // Only show to admins
-        if (!current_user_can('manage_options')) {
+        if (!$this->should_show_activation_notice()) {
             return;
         }
-
-        // Check if notice was dismissed
-        if (get_option('cfzt_activation_notice_dismissed')) {
-            return;
-        }
-
-        // Check if transient exists (recently activated)
-        if (!get_transient('cfzt_activation_notice')) {
-            return;
-        }
-
-        // Check if plugin is already configured
-        $options = CFZT_Plugin::get_option();
-        $is_configured = !empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret']);
-
-        if ($is_configured) {
-            // Plugin is configured, dismiss the notice
-            delete_transient('cfzt_activation_notice');
-            return;
-        }
-
-        // Don't show on our settings page
-        $screen = get_current_screen();
-        if ($screen && $screen->id === 'settings_page_cf-zero-trust') {
-            return;
-        }
-
         ?>
-        <div class="notice notice-success is-dismissible cfzt-activation-notice" data-notice="cfzt-activation">
+        <div class="notice notice-success is-dismissible cfzt-activation-notice"
+             data-cfzt-dismiss-action="cfzt_dismiss_activation_notice"
+             data-cfzt-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_notice')); ?>">
             <div style="display: flex; align-items: center; padding: 10px 0;">
                 <div style="flex: 1;">
                     <h3 style="margin: 0 0 10px 0;">
@@ -726,32 +699,36 @@ class CFZT_Admin {
                 </div>
             </div>
         </div>
-
-        <script>
-        jQuery(document).ready(function($) {
-            // Handle dismiss button
-            $('.cfzt-activation-notice').on('click', '.notice-dismiss', function() {
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: {
-                        action: 'cfzt_dismiss_activation_notice',
-                        nonce: '<?php echo esc_js(wp_create_nonce('cfzt_dismiss_notice')); ?>'
-                    }
-                });
-            });
-        });
-        </script>
-
-        <style>
-        .cfzt-activation-notice {
-            border-left-color: #f38020 !important;
-        }
-        .cfzt-activation-notice h3 {
-            color: #1d2327;
-        }
-        </style>
         <?php
+    }
+
+    /**
+     * Whether the activation welcome notice should render on this request
+     *
+     * @return bool
+     */
+    private function should_show_activation_notice(): bool {
+        if (!current_user_can('manage_options') || get_option('cfzt_activation_notice_dismissed')) {
+            return false;
+        }
+
+        // Only shortly after activation
+        if (!get_transient('cfzt_activation_notice')) {
+            return false;
+        }
+
+        // Nothing to welcome once credentials are in place
+        $options = CFZT_Plugin::get_option();
+        if (!empty($options['team_domain']) && !empty($options['client_id']) && !empty($options['client_secret'])) {
+            delete_transient('cfzt_activation_notice');
+            return false;
+        }
+
+        // The settings page is where the notice sends people; no need there.
+        // get_current_screen() only exists inside wp-admin, and some front-end
+        // editors fire admin_enqueue_scripts, which calls this.
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        return !($screen && $screen->id === 'settings_page_cf-zero-trust');
     }
 
     /**
@@ -779,30 +756,11 @@ class CFZT_Admin {
      * Display onboarding checklist notice
      */
     public function onboarding_checklist_notice() {
-        // Only show to admins
-        if (!current_user_can('manage_options')) {
+        if (!$this->should_show_onboarding_checklist()) {
             return;
         }
 
-        // Check if checklist was dismissed
-        if (get_user_meta(get_current_user_id(), 'cfzt_onboarding_dismissed', true)) {
-            return;
-        }
-
-        // Only show on relevant admin pages
-        $screen = get_current_screen();
-        $show_on_pages = array('dashboard', 'settings_page_cf-zero-trust', 'tools_page_cf-zero-trust-dashboard');
-        if (!$screen || !in_array($screen->id, $show_on_pages)) {
-            return;
-        }
-
-        // Get setup progress
         $progress = CFZT_Plugin::get_setup_progress();
-
-        // Don't show if setup is complete
-        if ($progress['percentage'] >= 100) {
-            return;
-        }
 
         // Define checklist items with actions
         $options = CFZT_Plugin::get_option();
@@ -842,7 +800,9 @@ class CFZT_Admin {
         );
 
         ?>
-        <div class="notice notice-info cfzt-onboarding-notice is-dismissible" data-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_onboarding')); ?>">
+        <div class="notice notice-info cfzt-onboarding-notice is-dismissible"
+             data-cfzt-dismiss-action="cfzt_dismiss_onboarding_checklist"
+             data-cfzt-dismiss-nonce="<?php echo esc_attr(wp_create_nonce('cfzt_dismiss_onboarding')); ?>">
             <div style="display: flex; align-items: flex-start; padding: 12px 0;">
                 <div style="font-size: 32px; margin-right: 15px;">🚀</div>
                 <div style="flex: 1;">
@@ -889,44 +849,36 @@ class CFZT_Admin {
                 </div>
             </div>
         </div>
-
-        <style>
-        /* WordPress moves admin notices to just below the first heading in .wrap,
-           which on this page is inside the orange wizard header (color: #fff).
-           Set the text colour explicitly or every checklist title inherits white
-           on a white panel. */
-        .cfzt-onboarding-notice,
-        .cfzt-onboarding-notice p,
-        .cfzt-onboarding-checklist,
-        .cfzt-onboarding-checklist span {
-            color: #1d2327;
-        }
-        .cfzt-onboarding-notice {
-            border-left-color: #f38020 !important;
-        }
-        .cfzt-onboarding-notice h3 {
-            color: #1d2327;
-        }
-        .cfzt-onboarding-checklist {
-            background: #fff;
-            padding: 12px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        </style>
-
-        <script>
-        jQuery(document).ready(function($) {
-            $('.cfzt-onboarding-notice').on('click', '.notice-dismiss', function() {
-                var nonce = $('.cfzt-onboarding-notice').data('dismiss-nonce');
-                $.post(ajaxurl, {
-                    action: 'cfzt_dismiss_onboarding_checklist',
-                    nonce: nonce
-                });
-            });
-        });
-        </script>
         <?php
+    }
+
+    /**
+     * Whether the onboarding checklist should render on this request
+     *
+     * @return bool
+     */
+    private function should_show_onboarding_checklist(): bool {
+        if (!current_user_can('manage_options')) {
+            return false;
+        }
+
+        if (get_user_meta(get_current_user_id(), 'cfzt_onboarding_dismissed', true)) {
+            return false;
+        }
+
+        // Only on the WordPress dashboard and the plugin's own pages
+        // (and never outside wp-admin, see should_show_activation_notice())
+        if (!function_exists('get_current_screen')) {
+            return false;
+        }
+        $screen = get_current_screen();
+        $show_on_pages = array('dashboard', 'settings_page_cf-zero-trust', 'tools_page_cf-zero-trust-dashboard');
+        if (!$screen || !in_array($screen->id, $show_on_pages, true)) {
+            return false;
+        }
+
+        $progress = CFZT_Plugin::get_setup_progress();
+        return $progress['percentage'] < 100;
     }
 
     /**
@@ -1093,73 +1045,188 @@ class CFZT_Admin {
     }
     
     /**
-     * Enqueue admin scripts
-     * 
+     * Enqueue admin styles and scripts
+     *
+     * Each plugin screen gets its own stylesheet and script, loaded only on
+     * that screen. Strings and nonces reach the scripts through
+     * wp_localize_script() so the templates contain no inline JavaScript.
+     *
      * @param string $hook Current admin page hook
      */
     public function enqueue_admin_scripts($hook) {
-        if ($hook !== 'settings_page_cf-zero-trust') {
-            return;
+        $version = CFZT_PLUGIN_VERSION;
+
+        // Dismiss handler and styling for the plugin's admin notices, which
+        // can appear on screens other than its own.
+        if ($this->should_show_saml_removal_notice()
+            || $this->should_show_activation_notice()
+            || $this->should_show_onboarding_checklist()
+        ) {
+            wp_enqueue_style('cfzt-notices', CFZT_PLUGIN_URL . 'assets/css/cfzt-notices.css', array(), $version);
+            wp_enqueue_script('cfzt-notices', CFZT_PLUGIN_URL . 'assets/js/cfzt-notices.js', array('jquery'), $version, true);
         }
-        
-        wp_enqueue_script(
-            'cfzt-admin',
-            CFZT_PLUGIN_URL . 'assets/js/cfzt-admin.js',
-            array('jquery'),
-            CFZT_PLUGIN_VERSION,
-            true
+
+        switch ($hook) {
+            case 'users.php':
+                // The "Cloudflare" badge in the custom users column
+                wp_enqueue_style('cfzt-users', CFZT_PLUGIN_URL . 'assets/css/cfzt-users.css', array(), $version);
+                break;
+
+            case 'settings_page_cf-zero-trust':
+                wp_enqueue_style('cfzt-admin', CFZT_PLUGIN_URL . 'assets/css/cfzt-admin.css', array(), $version);
+
+                wp_enqueue_script('cfzt-admin', CFZT_PLUGIN_URL . 'assets/js/cfzt-admin.js', array('jquery'), $version, true);
+                wp_localize_script('cfzt-admin', 'cfztAdmin', array(
+                    'nonce' => wp_create_nonce('cfzt_check_updates'),
+                    'checkingText' => __('Checking...', 'zero-trust-login-for-cloudflare'),
+                    'errorText' => __('Error checking for updates. Please try again.', 'zero-trust-login-for-cloudflare'),
+                    'updateNowText' => __('Update Now', 'zero-trust-login-for-cloudflare'),
+                    'showDetailsText' => __('Show Details', 'zero-trust-login-for-cloudflare'),
+                    'hideDetailsText' => __('Hide Details', 'zero-trust-login-for-cloudflare')
+                ));
+
+                wp_enqueue_script('cfzt-settings', CFZT_PLUGIN_URL . 'assets/js/cfzt-settings.js', array('jquery'), $version, true);
+                wp_localize_script('cfzt-settings', 'cfztSettings', $this->settings_script_data());
+                break;
+
+            case 'tools_page_cf-zero-trust-dashboard':
+                wp_enqueue_style('cfzt-dashboard', CFZT_PLUGIN_URL . 'assets/css/cfzt-dashboard.css', array(), $version);
+                wp_enqueue_script('cfzt-dashboard', CFZT_PLUGIN_URL . 'assets/js/cfzt-dashboard.js', array('jquery'), $version, true);
+                wp_localize_script('cfzt-dashboard', 'cfztDashboard', array(
+                    'nonce' => wp_create_nonce('cfzt_test_connection'),
+                    'i18n' => array(
+                        'testing' => __('Testing...', 'zero-trust-login-for-cloudflare'),
+                        'results' => __('Connection Test Results', 'zero-trust-login-for-cloudflare'),
+                        'warnings' => __('Warnings:', 'zero-trust-login-for-cloudflare'),
+                        'failed' => __('Connection test failed', 'zero-trust-login-for-cloudflare'),
+                        'unexpected' => __('Connection test failed unexpectedly. Please try again.', 'zero-trust-login-for-cloudflare'),
+                    ),
+                ));
+                break;
+
+            case 'tools_page_cf-zero-trust-logs':
+                wp_enqueue_style('cfzt-logs', CFZT_PLUGIN_URL . 'assets/css/cfzt-logs.css', array(), $version);
+                wp_enqueue_script('cfzt-logs', CFZT_PLUGIN_URL . 'assets/js/cfzt-logs.js', array('jquery'), $version, true);
+                wp_localize_script('cfzt-logs', 'cfztLogs', array(
+                    'i18n' => array(
+                        'failedToLoadLogs' => __('Failed to load logs.', 'zero-trust-login-for-cloudflare'),
+                        'noLogsFoundMatchingYour' => __('No logs found matching your filters.', 'zero-trust-login-for-cloudflare'),
+                        'success' => __('Success', 'zero-trust-login-for-cloudflare'),
+                        'failed' => __('Failed', 'zero-trust-login-for-cloudflare'),
+                        'showing' => __('Showing', 'zero-trust-login-for-cloudflare'),
+                        'of' => __('of', 'zero-trust-login-for-cloudflare'),
+                        'logs' => __('logs', 'zero-trust-login-for-cloudflare'),
+                        'page' => __('Page', 'zero-trust-login-for-cloudflare'),
+                        'areYouSureYouWant' => __('Are you sure you want to clear all logs? This action cannot be undone.', 'zero-trust-login-for-cloudflare'),
+                        'failedToClearLogs' => __('Failed to clear logs.', 'zero-trust-login-for-cloudflare'),
+                    ),
+                    'nonces' => array(
+                        'logsAction' => wp_create_nonce('cfzt_logs_action'),
+                    ),
+                ));
+                break;
+        }
+    }
+
+    /**
+     * Data for the settings page script
+     *
+     * @return array
+     */
+    private function settings_script_data(): array {
+        $options = CFZT_Plugin::get_option();
+        $role_mappings = isset($options['role_mapping']) && is_array($options['role_mapping']) ? $options['role_mapping'] : array();
+
+        return array(
+            // The template renders one empty row when nothing is mapped, so
+            // new rows must number from 1 in that case.
+            'roleMappingCount' => max(1, count($role_mappings)),
+            'roles' => wp_roles()->get_names(),
+            'i18n' => array(
+                'copiedToClipboard' => __('Copied to clipboard!', 'zero-trust-login-for-cloudflare'),
+                'copied' => __('Copied!', 'zero-trust-login-for-cloudflare'),
+                'failedToCopyPleaseCopy' => __('Failed to copy. Please copy manually.', 'zero-trust-login-for-cloudflare'),
+                'switchToAdvancedMode' => __('Switch to Advanced Mode', 'zero-trust-login-for-cloudflare'),
+                'switchToWizardMode' => __('Switch to Wizard Mode', 'zero-trust-login-for-cloudflare'),
+                'hideRemainingTasks' => __('Hide remaining tasks', 'zero-trust-login-for-cloudflare'),
+                'viewRemainingTasks' => __('View remaining tasks', 'zero-trust-login-for-cloudflare'),
+                'pleaseEnterYourTeamDomain' => __('Please enter your Team Domain', 'zero-trust-login-for-cloudflare'),
+                'pleaseEnterYourClientId' => __('Please enter your Client ID', 'zero-trust-login-for-cloudflare'),
+                'pleaseEnterYourClientSecret' => __('Please enter your Client Secret', 'zero-trust-login-for-cloudflare'),
+                'newSecretEntered' => __('New secret entered', 'zero-trust-login-for-cloudflare'),
+                'keepingSavedSecret' => __('Keeping saved secret', 'zero-trust-login-for-cloudflare'),
+                'notSet' => __('Not set', 'zero-trust-login-for-cloudflare'),
+                'authenticationMethod' => __('Authentication Method', 'zero-trust-login-for-cloudflare'),
+                'teamDomain' => __('Team Domain', 'zero-trust-login-for-cloudflare'),
+                'applicationType' => __('Application Type', 'zero-trust-login-for-cloudflare'),
+                'clientId' => __('Client ID', 'zero-trust-login-for-cloudflare'),
+                'clientSecret' => __('Client Secret', 'zero-trust-login-for-cloudflare'),
+                'loginMode' => __('Login Mode', 'zero-trust-login-for-cloudflare'),
+                'autoCreateUsers' => __('Auto-create Users', 'zero-trust-login-for-cloudflare'),
+                'enabled' => __('Enabled', 'zero-trust-login-for-cloudflare'),
+                'disabled' => __('Disabled', 'zero-trust-login-for-cloudflare'),
+                'defaultRole' => __('Default Role', 'zero-trust-login-for-cloudflare'),
+                'savingConfiguration' => __('Saving configuration...', 'zero-trust-login-for-cloudflare'),
+                'tipPressStrongCtrlCmd' => __('Tip: Press <strong>Ctrl/Cmd + S</strong> to save', 'zero-trust-login-for-cloudflare'),
+                'testing' => __('Testing...', 'zero-trust-login-for-cloudflare'),
+                'warnings' => __('Warnings:', 'zero-trust-login-for-cloudflare'),
+                'connectionTestPassed' => __('Connection test passed!', 'zero-trust-login-for-cloudflare'),
+                'connectionTestFailed' => __('Connection test failed', 'zero-trust-login-for-cloudflare'),
+                'additionalWarnings' => __('Additional warnings:', 'zero-trust-login-for-cloudflare'),
+                'anUnexpectedErrorOccurredPlease' => __('An unexpected error occurred. Please try again.', 'zero-trust-login-for-cloudflare'),
+                'shouldEndWithCloudflareaccessCom' => __('Should end with .cloudflareaccess.com', 'zero-trust-login-for-cloudflare'),
+                'validTeamDomainFormat' => __('Valid team domain format', 'zero-trust-login-for-cloudflare'),
+                'clientIdSeemsTooShort' => __('Client ID seems too short', 'zero-trust-login-for-cloudflare'),
+                'clientIdUsuallyContainsOnly' => __('Client ID usually contains only hex characters', 'zero-trust-login-for-cloudflare'),
+                'validClientIdFormat' => __('Valid client ID format', 'zero-trust-login-for-cloudflare'),
+                'valueSetViaConstantCannot' => __('Value set via constant (cannot be changed here)', 'zero-trust-login-for-cloudflare'),
+                'clientSecretSeemsTooShort' => __('Client secret seems too short', 'zero-trust-login-for-cloudflare'),
+                'clientSecretLooksGood' => __('Client secret looks good', 'zero-trust-login-for-cloudflare'),
+                'validUrlFormat' => __('Valid URL format', 'zero-trust-login-for-cloudflare'),
+                'pleaseEnterAValidUrl' => __('Please enter a valid URL', 'zero-trust-login-for-cloudflare'),
+                'shouldContainOnlyLettersNumbers' => __('Should contain only letters, numbers, hyphens, and underscores', 'zero-trust-login-for-cloudflare'),
+                'validFormat' => __('Valid format', 'zero-trust-login-for-cloudflare'),
+                'cloudflareGroupName' => __('Cloudflare group name', 'zero-trust-login-for-cloudflare'),
+                'pleaseSelectAValidJson' => __('Please select a valid JSON file.', 'zero-trust-login-for-cloudflare'),
+                'exporting' => __('Exporting...', 'zero-trust-login-for-cloudflare'),
+                'settingsExportedSuccessfully' => __('Settings exported successfully!', 'zero-trust-login-for-cloudflare'),
+                'exportSuccessful' => __('Export Successful!', 'zero-trust-login-for-cloudflare'),
+                'yourSettingsHaveBeenDownloaded' => __('Your settings have been downloaded as', 'zero-trust-login-for-cloudflare'),
+                'exportFailed' => __('Export failed', 'zero-trust-login-for-cloudflare'),
+                'exportFailedPleaseTryAgain' => __('Export failed. Please try again.', 'zero-trust-login-for-cloudflare'),
+                'pleaseSelectAFileFirst' => __('Please select a file first.', 'zero-trust-login-for-cloudflare'),
+                'warningThisWillReplaceYour' => __('Warning: This will replace your current settings. Are you sure you want to continue?', 'zero-trust-login-for-cloudflare'),
+                'importing' => __('Importing...', 'zero-trust-login-for-cloudflare'),
+                'settingsImportedSuccessfullyReloadingPage' => __('Settings imported successfully! Reloading page...', 'zero-trust-login-for-cloudflare'),
+                'importSuccessful' => __('Import Successful!', 'zero-trust-login-for-cloudflare'),
+                'thePageWillReloadIn' => __('The page will reload in 2 seconds...', 'zero-trust-login-for-cloudflare'),
+                'importFailed' => __('Import failed', 'zero-trust-login-for-cloudflare'),
+                'importFailed2' => __('Import Failed', 'zero-trust-login-for-cloudflare'),
+                'importFailedPleaseTryAgain' => __('Import failed. Please try again.', 'zero-trust-login-for-cloudflare'),
+                'allowedEmailAddresses' => __('Allowed email addresses', 'zero-trust-login-for-cloudflare'),
+                'allowedEmailDomains' => __('Allowed email domains', 'zero-trust-login-for-cloudflare'),
+                'pasteYourCloudflareApiToken' => __('Paste your Cloudflare API token first.', 'zero-trust-login-for-cloudflare'),
+                'connecting' => __('Connecting…', 'zero-trust-login-for-cloudflare'),
+                'couldNotConnectToCloudflare' => __('Could not connect to Cloudflare.', 'zero-trust-login-for-cloudflare'),
+                'noZeroTrustTeamDomain' => __('no Zero Trust team domain', 'zero-trust-login-for-cloudflare'),
+                'noneOfTheAccountsThis' => __('None of the accounts this token can reach have a Zero Trust team domain yet. Set one up in the Cloudflare Zero Trust dashboard, then connect again.', 'zero-trust-login-for-cloudflare'),
+                'tokenAcceptedChooseAnAccount' => __('Token accepted. Choose an account and confirm who should be able to log in.', 'zero-trust-login-for-cloudflare'),
+                'tokenAcceptedConfirmWhoShould' => __('Token accepted. Confirm who should be able to log in.', 'zero-trust-login-for-cloudflare'),
+                'theRequestFailedCheckYour' => __('The request failed. Check your connection and try again.', 'zero-trust-login-for-cloudflare'),
+                'creatingApplication' => __('Creating application…', 'zero-trust-login-for-cloudflare'),
+                'provisioningFailed' => __('Provisioning failed.', 'zero-trust-login-for-cloudflare'),
+                'replaceTheExistingApplication' => __('Replace the existing application', 'zero-trust-login-for-cloudflare'),
+                'doneTheAccessApplicationWas' => __('Done. The Access application was created and your credentials are saved.', 'zero-trust-login-for-cloudflare'),
+                'continue' => __('Continue', 'zero-trust-login-for-cloudflare'),
+                'youCanNowDeleteThe' => __('You can now delete the API token in Cloudflare — it is no longer needed.', 'zero-trust-login-for-cloudflare'),
+                'cloudflareApplicationCreated' => __('Cloudflare application created', 'zero-trust-login-for-cloudflare'),
+            ),
+            'nonces' => array(
+                'testConnection' => wp_create_nonce('cfzt_test_connection'),
+                'importExport' => wp_create_nonce('cfzt_import_export'),
+                'setup' => wp_create_nonce(CFZT_Setup::NONCE_ACTION),
+            ),
         );
-        
-        wp_localize_script('cfzt-admin', 'cfztAdmin', array(
-            'nonce' => wp_create_nonce('cfzt_check_updates'),
-            'checkingText' => __('Checking...', 'zero-trust-login-for-cloudflare'),
-            'errorText' => __('Error checking for updates. Please try again.', 'zero-trust-login-for-cloudflare'),
-            'updateNowText' => __('Update Now', 'zero-trust-login-for-cloudflare'),
-            'showDetailsText' => __('Show Details', 'zero-trust-login-for-cloudflare'),
-            'hideDetailsText' => __('Hide Details', 'zero-trust-login-for-cloudflare')
-        ));
-        
-        // Add inline CSS for update check status and user column
-        wp_add_inline_style('common', '
-            #cfzt-update-check-status {
-                margin: 10px 0;
-                padding: 10px;
-                display: none;
-            }
-            #cfzt-update-check-status.notice-success,
-            #cfzt-update-check-status.notice-warning,
-            #cfzt-update-check-status.notice-error {
-                display: block;
-            }
-            #cfzt-update-check-status .spinner {
-                visibility: visible;
-            }
-            #cfzt-security-details {
-                display: none;
-            }
-            #cfzt-oidc-settings {
-                margin-top: 20px;
-            }
-            .cfzt-section-hidden {
-                display: none;
-            }
-            .cfzt-badge {
-                display: inline-flex;
-                align-items: center;
-                padding: 3px 8px;
-                border-radius: 3px;
-                font-size: 11px;
-                font-weight: 600;
-                line-height: 1;
-            }
-            .cfzt-badge-active {
-                background: #00a0d2;
-                color: #fff;
-            }
-            .cfzt-user-status {
-                line-height: 1.8;
-            }
-        ');
     }
     
     /**
@@ -1748,8 +1815,8 @@ class CFZT_Admin {
         // Log the import
         CFZT_Logger::info('Settings imported', array(
             'admin_user' => wp_get_current_user()->user_login,
-            'from_version' => isset($import_data['version']) ? $import_data['version'] : 'unknown',
-            'from_site' => isset($import_data['site_url']) ? $import_data['site_url'] : 'unknown'
+            'from_version' => isset($import_data['version']) && is_scalar($import_data['version']) ? sanitize_text_field((string) $import_data['version']) : 'unknown',
+            'from_site' => isset($import_data['site_url']) && is_scalar($import_data['site_url']) ? esc_url_raw((string) $import_data['site_url']) : 'unknown'
         ));
 
         if (!$secret_restored && '' === $sanitized['client_secret']) {
